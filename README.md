@@ -7,17 +7,21 @@ A production-ready, cross-platform mobile application for detecting expired, spo
 - Camera-first inspection for food, beverages, packaged goods, produce, meat, dairy, and more.
 - AI analysis based on product condition, not only printed expiry dates.
 - Offline-capable SQLite mode and online PostgreSQL mode.
-- Professional report generation with PDF/CSV/Excel export and digital signatures.
+- Professional report generation with PDF/CSV/Excel export, QR codes, and digital signatures.
 - Role-based access for inspectors, managers, administrators, and consumers.
 - Scalable architecture for future sensors (Bluetooth, NIR, thermal, barcode, RFID, NFC, IoT).
 
 ## What's implemented
 
 - **Real computer-vision pipeline** in `ai-service/`: YOLOv8 object detection, EfficientNet-B0 product classification, MobileNetV3-Small fresh/spoiled spoilage classifier, and OpenCV-based packaging/bruise analysis.
-- **Explainable AI**: every scan returns `findings` with concrete reasons (model scores, color/texture stats, packaging contour analysis).
-- **Dataset and training scaffold** in `ai-service/datasets/` to prepare public datasets and fine-tune EfficientNet/MobileNet classifiers.
-- **Mobile scanner**: live camera preview, continuous capture, multiple scan angles, image quality validation, and detailed result display.
-- **Inspector dashboard**: inspection counts, breakdown bar chart, confidence trend line chart, GPS map of inspections.
+- **Product-first recognition**: detect product, identify category, then assess freshness/spoilage with explainable `findings`.
+- **Barcode and QR integration**: scan barcodes in-app, look up products via Open Food Facts, and compare printed expiry data with AI findings.
+- **Manufacturer knowledge base**: `Company`, `Branch`, `Manufacturer`, `Product`, and `Barcode` models with CRUD and import from Open Food Facts.
+- **Enterprise reports**: PDF/CSV/Excel reports with company, product, batch, barcode, AI findings, confidence, inspector, GPS, timestamp, QR code, and optional digital signature.
+- **Analytics dashboard**: inspection breakdown, confidence trends, expired-by-category stats, manufacturer trends, geographic distribution, and time-series analytics.
+- **Multi-language scaffolding**: `i18n-js` + `expo-localization` with translation files for all 11 South African official languages.
+- **Enterprise administration**: company/branch/device/inspector/role management with RBAC.
+- **Continuous AI improvement**: review workflow for inspector disagreements, approved-review export for offline retraining, and controlled model-deployment pipeline.
 - **Security**: JWT auth, role-based endpoints, encrypted token storage with `expo-secure-store`, audit logs, and offline scan queue.
 - **Production deployment**: Kubernetes manifests, Nginx reverse-proxy config, and EAS production build config.
 
@@ -56,6 +60,13 @@ npx expo start
 
 Use the Expo Go app on Android/iOS, or run `i` / `a` in the terminal.
 
+### 3. Seed manufacturer examples
+
+```bash
+cd backend
+DATABASE_URL=postgresql://... python scripts/seed_manufacturers.py
+```
+
 ## Training your own models
 
 ```bash
@@ -63,6 +74,20 @@ cd ai-service/datasets
 python prepare_hf.py --dataset Project-AgML/fresh_rotten_fruit_classification --output ../data
 python train.py --data-dir ../data/raw --output-dir ../checkpoints
 ```
+
+## Continuous improvement workflow
+
+1. Inspectors request a review from the mobile app when they disagree with an AI prediction.
+2. Authorized reviewers approve or reject the request and set the correct label.
+3. Export approved examples for offline retraining:
+
+```bash
+cd ai-service
+BACKEND_URL=http://localhost:8000 BACKEND_TOKEN=<admin-token> \
+  python scripts/build_feedback_dataset.py --output datasets/feedback
+```
+
+4. Run `datasets/train.py` on the feedback dataset, validate the new model, then deploy the updated `ai-service` image.
 
 ## Production build
 

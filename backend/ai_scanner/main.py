@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ai_scanner.app.routers import audit, auth, dashboard, reports, scans
+from ai_scanner.app.routers import admin, analytics, audit, auth, dashboard, products, reports, reviews, scans
 from ai_scanner.config import settings
 
 
@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Smart Consumable Scanner AI API",
     description="Enterprise AI inspection system backend.",
-    version="0.1.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -33,6 +33,10 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(scans.router, prefix="/scans", tags=["scans"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+app.include_router(products.router, prefix="/products", tags=["products"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
+app.include_router(reviews.router, prefix="/reviews", tags=["reviews"])
 app.include_router(audit.router, prefix="/admin", tags=["admin"])
 
 

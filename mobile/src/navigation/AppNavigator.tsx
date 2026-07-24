@@ -4,10 +4,12 @@ import { createStackNavigator } from '@react-navigation/stack';
 import React from 'react';
 
 import { useAuth } from '../context/AuthContext';
+import AdminScreen from '../screens/AdminScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import ReviewScreen from '../screens/ReviewScreen';
 import ScanScreen from '../screens/ScanScreen';
 
 export type RootStackParamList = {
@@ -25,6 +27,8 @@ function MainTabs() {
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
       <Tab.Screen name="History" component={HistoryScreen} />
       <Tab.Screen name="Reports" component={ReportsScreen} />
+      <Tab.Screen name="Review" component={ReviewScreen} />
+      <Tab.Screen name="Admin" component={AdminScreen} />
     </Tab.Navigator>
   );
 }

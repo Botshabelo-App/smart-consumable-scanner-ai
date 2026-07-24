@@ -10,6 +10,7 @@ The Smart Consumable Scanner AI is designed to inspect consumable products using
 - **Packaging condition** — dents, swelling, tears, leaks, deformation.
 - **Object recognition** — product category and packaging type using deep-learning classifiers.
 - **Freshness indicators for exposed produce** — trained spoilage models on fruits and vegetables give real P(spoiled) scores.
+- **Barcode and QR scanning** — retrieve product name, manufacturer, and printed dates from public databases when encoded.
 
 ### Limitations
 
@@ -20,13 +21,16 @@ The Smart Consumable Scanner AI is designed to inspect consumable products using
 | Meat/fish behind plastic film | Color, exudate, package shape | Bacterial load, internal decay, smell |
 | Frozen products | Packaging condition, ice crystals, freezer burn surface | Internal thaw/refreeze history |
 | Dairy/cheese inside carton | Carton shape, leaks | Milk protein breakdown, bacterial toxins |
+| Barcode/QR only | Metadata from database | The physical condition of the product itself |
 
 The application therefore:
 
 1. Runs **real model inference** on the visible evidence.
-2. **Documents uncertainty and limitations** in the `findings` list.
-3. Uses **packaging and surface cues** only for sealed or opaque products.
-4. Allows **inspector override** and manual expiry date entry for compliance workflows.
+2. Uses **barcode/QR data** to retrieve product metadata and printed dates, but treats those as separate signals.
+3. **Flags discrepancies** when the AI-detected condition conflicts with printed expiry data, and routes the case for human review rather than automatically concluding fraud.
+4. **Documents uncertainty and limitations** in the `findings` list.
+5. Uses **packaging and surface cues** only for sealed or opaque products.
+6. Allows **inspector override** and manual expiry date entry for compliance workflows.
 
 ## Future sensor integration points
 
@@ -71,3 +75,7 @@ The architecture is modular so extra sensors can be added without changing the c
 - The `ai-service/scripts/export_mobile_models.py` script exports PyTorch checkpoints to ONNX and TensorFlow Lite.
 - Future mobile releases can run the spoilage classifier locally (TensorFlow Lite / ONNX Runtime) for offline, low-latency inference, then sync results when online.
 - The first production release uses server inference to support rapid model updates and centralized model governance.
+
+## Model retraining policy
+
+The application **does not retrain production models automatically** from reviewer feedback. Approved review examples are exported to a controlled `datasets/feedback/` directory. Retraining and validation happen offline; the updated model is deployed only after review.

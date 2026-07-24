@@ -48,11 +48,13 @@ IMAGENET_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "garlic": ("garlic", ProductCategory.PRODUCE),
     "bread": ("bread", ProductCategory.FOOD),
     "bagel": ("bagel", ProductCategory.FOOD),
+    "pretzel": ("pretzel", ProductCategory.FOOD),
     "pizza": ("pizza", ProductCategory.FOOD),
     "hotdog": ("hot dog", ProductCategory.FOOD),
     "sandwich": ("sandwich", ProductCategory.FOOD),
     "cake": ("cake", ProductCategory.FOOD),
     "doughnut": ("doughnut", ProductCategory.FOOD),
+    "waffle": ("waffle", ProductCategory.FOOD),
     "ice cream": ("ice cream", ProductCategory.FROZEN),
     "wine bottle": ("wine", ProductCategory.BEVERAGE),
     "beer bottle": ("beer", ProductCategory.BEVERAGE),
@@ -66,14 +68,17 @@ IMAGENET_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "whiskey": ("whiskey", ProductCategory.BEVERAGE),
     "water": ("water", ProductCategory.BEVERAGE),
     "juice": ("juice", ProductCategory.BEVERAGE),
+    "soft drink": ("soft drink", ProductCategory.BEVERAGE),
     "milk": ("milk", ProductCategory.DAIRY),
     "cheese": ("cheese", ProductCategory.DAIRY),
     "yogurt": ("yogurt", ProductCategory.DAIRY),
     "butter": ("butter", ProductCategory.DAIRY),
+    "egg": ("egg", ProductCategory.FOOD),
     "beef": ("beef", ProductCategory.MEAT),
     "steak": ("beef", ProductCategory.MEAT),
     "chicken": ("chicken", ProductCategory.MEAT),
     "pork": ("pork", ProductCategory.MEAT),
+    "lamb": ("lamb", ProductCategory.MEAT),
     "meat loaf": ("meat", ProductCategory.MEAT),
     "meatball": ("meat", ProductCategory.MEAT),
     "salmon": ("salmon", ProductCategory.SEAFOOD),
@@ -82,30 +87,46 @@ IMAGENET_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "lobster": ("lobster", ProductCategory.SEAFOOD),
     "packet": ("packaged product", ProductCategory.PACKAGED),
     "pill bottle": ("medicine/supplement", ProductCategory.OTHER),
+    "canned": ("canned product", ProductCategory.PACKAGED),
+    "soup": ("canned/prepared food", ProductCategory.PACKAGED),
 }
 
 HINT_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "milk": ("milk", ProductCategory.DAIRY),
     "cheese": ("cheese", ProductCategory.DAIRY),
     "yogurt": ("yogurt", ProductCategory.DAIRY),
+    "butter": ("butter", ProductCategory.DAIRY),
     "beef": ("beef", ProductCategory.MEAT),
+    "steak": ("beef", ProductCategory.MEAT),
     "chicken": ("chicken", ProductCategory.MEAT),
     "pork": ("pork", ProductCategory.MEAT),
+    "lamb": ("lamb", ProductCategory.MEAT),
     "fish": ("fish", ProductCategory.SEAFOOD),
+    "salmon": ("salmon", ProductCategory.SEAFOOD),
+    "shrimp": ("shrimp", ProductCategory.SEAFOOD),
     "apple": ("apple", ProductCategory.PRODUCE),
     "banana": ("banana", ProductCategory.PRODUCE),
     "orange": ("orange", ProductCategory.PRODUCE),
     "bread": ("bread", ProductCategory.FOOD),
+    "egg": ("egg", ProductCategory.FOOD),
     "water": ("water", ProductCategory.BEVERAGE),
     "juice": ("juice", ProductCategory.BEVERAGE),
     "beer": ("beer", ProductCategory.BEVERAGE),
     "wine": ("wine", ProductCategory.BEVERAGE),
     "whiskey": ("whiskey", ProductCategory.BEVERAGE),
+    "soft drink": ("soft drink", ProductCategory.BEVERAGE),
+    "energy drink": ("energy drink", ProductCategory.BEVERAGE),
+    "coffee": ("coffee", ProductCategory.BEVERAGE),
+    "tea": ("tea", ProductCategory.BEVERAGE),
     "oil": ("cooking oil", ProductCategory.OTHER),
     "baby food": ("baby food", ProductCategory.PACKAGED),
     "canned": ("canned product", ProductCategory.PACKAGED),
     "frozen": ("frozen food", ProductCategory.FROZEN),
     "dry": ("dry product", ProductCategory.DRY),
+    "powder": ("powder product", ProductCategory.DRY),
+    "flour": ("flour", ProductCategory.DRY),
+    "sugar": ("sugar", ProductCategory.DRY),
+    "rice": ("rice", ProductCategory.DRY),
 }
 
 
@@ -260,10 +281,26 @@ class RealProductPipeline:
                 if key in hint_lower:
                     return name, cat, 0.7
 
-        # YOLO label fallback
+        # YOLO label fallback for COCO objects commonly seen in consumables
         yolo_label = detection_info.get("label", "")
-        if yolo_label in ("banana", "apple", "orange", "broccoli", "carrot"):
-            return yolo_label, ProductCategory.PRODUCE, detection_info.get("confidence", 0.7)
+        yolo_map = {
+            "banana": ("banana", ProductCategory.PRODUCE),
+            "apple": ("apple", ProductCategory.PRODUCE),
+            "orange": ("orange", ProductCategory.PRODUCE),
+            "broccoli": ("broccoli", ProductCategory.PRODUCE),
+            "carrot": ("carrot", ProductCategory.PRODUCE),
+            "bottle": ("bottle", ProductCategory.BEVERAGE),
+            "wine glass": ("wine", ProductCategory.BEVERAGE),
+            "cup": ("tea/coffee", ProductCategory.BEVERAGE),
+            "cake": ("cake", ProductCategory.FOOD),
+            "sandwich": ("sandwich", ProductCategory.FOOD),
+            "hot dog": ("hot dog", ProductCategory.FOOD),
+            "pizza": ("pizza", ProductCategory.FOOD),
+            "donut": ("doughnut", ProductCategory.FOOD),
+        }
+        if yolo_label in yolo_map:
+            name, cat = yolo_map[yolo_label]
+            return name, cat, detection_info.get("confidence", 0.7)
 
         # ImageNet top-5 matching
         for label, conf in top5_labels:

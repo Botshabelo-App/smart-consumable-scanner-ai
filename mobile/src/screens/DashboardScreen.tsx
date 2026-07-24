@@ -4,29 +4,26 @@ import { BarChart, LineChart } from 'react-native-chart-kit';
 import MapView, { Marker } from 'react-native-maps';
 
 import { useAuth } from '../context/AuthContext';
-import { getDashboardStats, getScans } from '../services/api';
-import { DashboardStats, ScanResult } from '../types';
+import { getAnalytics } from '../services/api';
+import { AnalyticsResult } from '../types';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function DashboardScreen() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [scans, setScans] = useState<ScanResult[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsResult | null>(null);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
 
   useEffect(() => {
-    Promise.all([getDashboardStats(), getScans()])
-      .then(([s, list]) => {
-        setStats(s);
-        setScans(list);
-      })
+    getAnalytics()
+      .then(setAnalytics)
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <ActivityIndicator style={{ flex: 1 }} />;
-  if (!stats) return <Text style={styles.center}>No stats available</Text>;
+  if (!analytics) return <Text style={styles.center}>No analytics available</Text>;
 
+  const stats = analytics.stats;
   const barData = {
     labels: ['Total', 'Fresh', 'Near', 'Expired', 'Suspicious'],
     datasets: [
@@ -36,24 +33,15 @@ export default function DashboardScreen() {
     ],
   };
 
-  // Confidence trend from recent scans
-  const recent = [...scans].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at)).slice(-10);
-  const trendLabels = recent.map((_, i) => String(i + 1));
+  const recent = analytics.time_series.slice(-10);
   const trendData = {
-    labels: trendLabels,
-    datasets: [{ data: recent.map((s) => s.confidence) }],
-  };
-
-  const conditionCounts = {
-    fresh: stats.fresh,
-    near_expiry: stats.near_expiry,
-    suspicious: stats.suspicious,
-    expired: stats.expired,
+    labels: recent.map((_, i) => String(i + 1)),
+    datasets: [{ data: recent.map((s) => s.average_confidence) }],
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Inspector Dashboard</Text>
+      <Text style={styles.title}>Inspection Dashboard</Text>
 
       <View style={styles.card}>
         <Text style={styles.metric}>Total inspections: {stats.total_scanned}</Text>
@@ -82,7 +70,7 @@ export default function DashboardScreen() {
         style={{ marginVertical: 16, borderRadius: 8 }}
       />
 
-      <Text style={styles.subtitle}>AI confidence trend (last 10 scans)</Text>
+      <Text style={styles.subtitle}>AI confidence trend</Text>
       <LineChart
         data={trendData}
         width={screenWidth - 32}
@@ -98,28 +86,40 @@ export default function DashboardScreen() {
         style={{ marginVertical: 16, borderRadius: 8 }}
       />
 
-      {scans.some((s) => s.latitude && s.longitude) && (
+      <Text style={styles.subtitle}>Expired by category</Text>
+      {analytics.category_expiry.map((c) => (
+        <Text key={c.category} style={styles.metric}>
+          {c.category}: expired {c.expired}, near {c.near_expiry}, suspicious {c.suspicious}, fresh {c.fresh}
+        </Text>
+      ))}
+
+      <Text style={styles.subtitle}>Manufacturer trends</Text>
+      {analytics.manufacturer_trends.map((m) => (
+        <Text key={m.manufacturer_name} style={styles.metric}>
+          {m.manufacturer_name}: {m.scan_count} scans, {m.expired_count} expired, {m.suspicious_count} suspicious
+        </Text>
+      ))}
+
+      {analytics.geographic_distribution.length > 0 && (
         <>
-          <Text style={styles.subtitle}>GPS map of inspections</Text>
+          <Text style={styles.subtitle}>Geographic distribution</Text>
           <MapView
             style={styles.map}
             initialRegion={{
-              latitude: scans.find((s) => s.latitude)!.latitude!,
-              longitude: scans.find((s) => s.longitude)!.longitude!,
+              latitude: analytics.geographic_distribution[0].latitude,
+              longitude: analytics.geographic_distribution[0].longitude,
               latitudeDelta: 0.5,
               longitudeDelta: 0.5,
             }}
           >
-            {scans
-              .filter((s) => s.latitude && s.longitude)
-              .map((s) => (
-                <Marker
-                  key={s.id}
-                  coordinate={{ latitude: s.latitude!, longitude: s.longitude! }}
-                  title={s.product_name || 'Inspection'}
-                  description={`${s.condition} (${(s.confidence * 100).toFixed(0)}%)`}
-                />
-              ))}
+            {analytics.geographic_distribution.map((g, idx) => (
+              <Marker
+                key={idx}
+                coordinate={{ latitude: g.latitude, longitude: g.longitude }}
+                title="Inspection cluster"
+                description={`${g.count} inspections`}
+              />
+            ))}
           </MapView>
         </>
       )}

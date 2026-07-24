@@ -1,7 +1,9 @@
+import os
 import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
@@ -34,6 +36,7 @@ def create_report(
         report_id=_new_report_id(),
         scan_id=scan.id,
         notes=payload.notes,
+        signature_data=payload.signature_data if payload.include_signature else None,
     )
     db.add(report)
     db.commit()
@@ -43,9 +46,9 @@ def create_report(
     if format == "pdf":
         file_path = generate_pdf(scan, report, inspector_name)
     elif format == "csv":
-        file_path = generate_csv(scan, report)
+        file_path = generate_csv(scan, report, inspector_name)
     else:
-        file_path = generate_excel(scan, report)
+        file_path = generate_excel(scan, report, inspector_name)
 
     report.file_url = file_path
     db.commit()
@@ -79,3 +82,22 @@ def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depen
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
+
+
+@router.get("/{report_id}/download")
+def download_report(report_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        report_uuid = None
+    report = (
+        db.query(Report).filter(Report.id == report_uuid).first()
+        if report_uuid else None
+    ) or db.query(Report).filter(Report.report_id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not report.file_url or not os.path.exists(report.file_url):
+        raise HTTPException(status_code=404, detail="Report file not found")
+    return FileResponse(report.file_url, filename=os.path.basename(report.file_url))
+
+

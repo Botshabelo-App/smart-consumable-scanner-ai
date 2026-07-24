@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { t } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { login, register } from '../services/api';
 
@@ -31,42 +32,32 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Smart Consumable Scanner AI</Text>
+      <Text style={styles.title}>{t('appName')}</Text>
       {mode === 'register' && (
-        <TextInput
-          style={styles.input}
-          placeholder="Full name"
-          value={fullName}
-          onChangeText={setFullName}
-        />
+        <TextInput style={styles.input} placeholder={t('fullName')} value={fullName} onChangeText={setFullName} />
       )}
       {mode === 'register' && (
-        <TextInput
-          style={styles.input}
-          placeholder="Role"
-          value={role}
-          onChangeText={setRole}
-        />
+        <TextInput style={styles.input} placeholder={t('role')} value={role} onChangeText={setRole} />
       )}
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder={t('email')}
         autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder={t('password')}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button title={mode === 'login' ? 'Log in' : 'Register'} onPress={submit} />
+      <Button title={mode === 'login' ? t('login') : t('register')} onPress={submit} />
       <View style={styles.toggle}>
         <Button
-          title={mode === 'login' ? 'Switch to register' : 'Switch to login'}
+          title={mode === 'login' ? t('register') : t('login')}
           onPress={() => setMode(mode === 'login' ? 'register' : 'login')}
         />
       </View>

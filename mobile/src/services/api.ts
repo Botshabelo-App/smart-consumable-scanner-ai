@@ -1,8 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance } from 'axios';
 
-import { DashboardStats, Report, ScanResult } from '../types';
-import { getToken, saveToken, deleteToken } from '../context/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteToken, getToken, saveToken } from '../context/AuthContext';
+import { AnalyticsResult, BarcodeInfo, Branch, Company, Report, ReviewRequest, ScanResult } from '../types';
 
 declare const __DEV__: boolean;
 
@@ -35,6 +35,8 @@ export async function register(payload: {
   password: string;
   role: string;
   organization?: string;
+  company_id?: string;
+  branch_id?: string;
 }): Promise<void> {
   await api.post('/auth/register', payload);
 }
@@ -43,25 +45,29 @@ export async function logout(): Promise<void> {
   await deleteToken();
 }
 
-export async function analyzeImage(
-  uri: string,
-  productName?: string,
-  location?: { latitude: number; longitude: number }
-): Promise<ScanResult> {
+export interface ScanPayload {
+  uri: string;
+  productName?: string;
+  barcodeCode?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  location?: { latitude: number; longitude: number };
+  companyId?: string;
+  branchId?: string;
+  deviceId?: string;
+}
+
+export async function analyzeImage(payload: ScanPayload): Promise<ScanResult> {
   try {
-    return await uploadScan(uri, productName, location);
+    return await uploadScan(payload);
   } catch (e) {
-    // Network failure: queue for later sync if offline mode is needed
-    await queueOfflineScan({ uri, productName, location });
+    await queueOfflineScan(payload);
     throw e;
   }
 }
 
-async function uploadScan(
-  uri: string,
-  productName?: string,
-  location?: { latitude: number; longitude: number }
-): Promise<ScanResult> {
+async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
+  const { uri, productName, barcodeCode, batchNumber, expiryDate, location, companyId, branchId, deviceId } = payload;
   const formData = new FormData();
   const filename = uri.split('/').pop() || 'scan.jpg';
   const match = /\.\w+$/.exec(filename);
@@ -69,10 +75,16 @@ async function uploadScan(
 
   formData.append('image', { uri, name: filename, type } as any);
   if (productName) formData.append('product_name', productName);
+  if (barcodeCode) formData.append('barcode_code', barcodeCode);
+  if (batchNumber) formData.append('batch_number', batchNumber);
+  if (expiryDate) formData.append('expiry_date', expiryDate);
   if (location) {
     formData.append('latitude', String(location.latitude));
     formData.append('longitude', String(location.longitude));
   }
+  if (companyId) formData.append('company_id', companyId);
+  if (branchId) formData.append('branch_id', branchId);
+  if (deviceId) formData.append('device_id', deviceId);
 
   const { data } = await api.post('/scans/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -85,8 +97,18 @@ export async function getScans(): Promise<ScanResult[]> {
   return data;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats() {
   const { data } = await api.get('/dashboard/stats');
+  return data;
+}
+
+export async function getAnalytics(): Promise<AnalyticsResult> {
+  const { data } = await api.get('/analytics/');
+  return data;
+}
+
+export async function lookupBarcode(code: string): Promise<BarcodeInfo> {
+  const { data } = await api.get(`/products/barcodes/${encodeURIComponent(code)}`);
   return data;
 }
 
@@ -99,15 +121,32 @@ export async function generateReport(
   return data;
 }
 
-interface QueuedScan {
-  uri: string;
-  productName?: string;
-  location?: { latitude: number; longitude: number };
+export async function createReviewRequest(scanId: string, suggestedCondition: string, reviewerNotes?: string): Promise<ReviewRequest> {
+  const { data } = await api.post('/reviews/', { scan_id: scanId, suggested_condition: suggestedCondition, reviewer_notes: reviewerNotes });
+  return data;
+}
+
+export async function getReviewRequests(): Promise<ReviewRequest[]> {
+  const { data } = await api.get('/reviews/');
+  return data;
+}
+
+export async function getCompanies(): Promise<Company[]> {
+  const { data } = await api.get('/admin/companies');
+  return data;
+}
+
+export async function getBranches(companyId?: string): Promise<Branch[]> {
+  const { data } = await api.get('/admin/branches', { params: { company_id: companyId } });
+  return data;
+}
+
+interface QueuedScan extends ScanPayload {
   createdAt: string;
 }
 
-async function queueOfflineScan(scan: Omit<QueuedScan, 'createdAt'>) {
-  const existing = JSON.parse((await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)) || '[]');
+async function queueOfflineScan(scan: ScanPayload) {
+  const existing: QueuedScan[] = JSON.parse((await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)) || '[]');
   existing.push({ ...scan, createdAt: new Date().toISOString() });
   await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existing));
 }

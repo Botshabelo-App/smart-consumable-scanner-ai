@@ -1,4 +1,4 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
@@ -16,8 +16,8 @@ import {
   View,
 } from 'react-native';
 
+import { analyzeImage, lookupBarcode, ScanPayload } from '../services/api';
 import { Condition, ScanResult } from '../types';
-import { analyzeImage } from '../services/api';
 
 const conditionColor: Record<Condition, string> = {
   fresh: '#2e7d32',
@@ -32,6 +32,10 @@ export default function ScanScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string[]>([]);
   const [productName, setProductName] = useState('');
+  const [barcode, setBarcode] = useState('');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [scanBarcode, setScanBarcode] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [continuous, setContinuous] = useState(false);
@@ -43,7 +47,6 @@ export default function ScanScreen() {
     }
   }, [permission]);
 
-  // Continuous scanning: capture every 3 seconds when enabled and not loading
   useEffect(() => {
     if (!continuous || loading) return;
     const interval = setInterval(() => {
@@ -69,6 +72,27 @@ export default function ScanScreen() {
     } catch (e) {
       setQualityNote('Could not verify image quality.');
       return false;
+    }
+  };
+
+  const handleBarcodeScanned = async (scanningResult: BarcodeScanningResult) => {
+    if (!scanBarcode || loading) return;
+    const code = scanningResult.data;
+    if (code === barcode) return;
+    setBarcode(code);
+    setScanBarcode(false);
+    try {
+      const info = await lookupBarcode(code);
+      if (info.product) {
+        setProductName(info.product.name);
+      } else {
+        setProductName('');
+      }
+      if (info.batch_number) setBatchNumber(info.batch_number);
+      if (info.expiry_date) setExpiryDate(info.expiry_date.split('T')[0]);
+      Alert.alert('Barcode scanned', `Code: ${code}\nProduct: ${info.product?.name || 'Unknown'}`);
+    } catch (e: any) {
+      Alert.alert('Barcode lookup failed', e?.response?.data?.detail || e.message);
     }
   };
 
@@ -103,7 +127,15 @@ export default function ScanScreen() {
           longitude: pos.coords.longitude,
         };
       }
-      const data = await analyzeImage(uri, productName, location);
+      const payload: ScanPayload = {
+        uri,
+        productName,
+        barcodeCode: barcode || undefined,
+        batchNumber: batchNumber || undefined,
+        expiryDate: expiryDate || undefined,
+        location,
+      };
+      const data = await analyzeImage(payload);
       setResult(data);
     } catch (e: any) {
       Alert.alert('Analysis error', e?.response?.data?.detail || e.message);
@@ -115,6 +147,10 @@ export default function ScanScreen() {
   const reset = () => {
     setPhoto(null);
     setCaptures([]);
+    setProductName('');
+    setBarcode('');
+    setBatchNumber('');
+    setExpiryDate('');
     setResult(null);
     setQualityNote(null);
   };
@@ -131,12 +167,22 @@ export default function ScanScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Scan a consumable product</Text>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+        barcodeScannerSettings={scanBarcode ? { barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'code128'] } : undefined}
+        onBarcodeScanned={scanBarcode ? handleBarcodeScanned : undefined}
+      />
       <View style={styles.row}>
         <Button title="Capture" onPress={takePicture} />
         <View style={styles.continuousRow}>
           <Text>Continuous</Text>
           <Switch value={continuous} onValueChange={setContinuous} />
+        </View>
+        <View style={styles.continuousRow}>
+          <Text>Scan barcode</Text>
+          <Switch value={scanBarcode} onValueChange={setScanBarcode} />
         </View>
       </View>
       {photo && <Image source={{ uri: photo }} style={styles.preview} />}
@@ -147,9 +193,7 @@ export default function ScanScreen() {
             horizontal
             data={captures}
             keyExtractor={(item, idx) => `${item}-${idx}`}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={styles.thumb} />
-            )}
+            renderItem={({ item }) => <Image source={{ uri: item }} style={styles.thumb} />}
           />
         </View>
       )}
@@ -158,6 +202,27 @@ export default function ScanScreen() {
         placeholder="Product name (optional)"
         value={productName}
         onChangeText={setProductName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Barcode (optional)"
+        value={barcode}
+        onChangeText={setBarcode}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Batch number (optional)"
+        value={batchNumber}
+        onChangeText={setBatchNumber}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Printed expiry date YYYY-MM-DD (optional)"
+        value={expiryDate}
+        onChangeText={setExpiryDate}
+        autoCapitalize="none"
       />
       {qualityNote && <Text style={styles.qualityNote}>{qualityNote}</Text>}
       {photo && (
@@ -177,6 +242,9 @@ export default function ScanScreen() {
           <Text style={styles.detail}>Category: {result.category || 'Unknown'}</Text>
           <Text style={styles.detail}>Packaging: {result.packaging_type || 'Unknown'}</Text>
           <Text style={styles.detail}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
+          {result.ai_vs_label_discrepancy && (
+            <Text style={styles.discrepancy}>Flagged: {result.discrepancy_reason}</Text>
+          )}
           <Text style={styles.subheading}>Why the AI decided this:</Text>
           {(result.findings || []).map((finding, idx) => (
             <Text key={idx} style={styles.finding}>
@@ -220,6 +288,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
+    flexWrap: 'wrap',
   },
   continuousRow: {
     flexDirection: 'row',
@@ -272,6 +341,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     marginBottom: 2,
+  },
+  discrepancy: {
+    fontSize: 14,
+    color: '#c62828',
+    fontWeight: '600',
+    marginVertical: 6,
   },
   centered: {
     flex: 1,
