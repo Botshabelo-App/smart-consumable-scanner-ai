@@ -3,15 +3,11 @@ from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import User
-from ai_scanner.app.dependencies import (
-    create_access_token,
-    get_password_hash,
-    validate_password,
-    verify_password,
-)
+from ai_scanner.app.dependencies import create_access_token, validate_password, verify_password
 from ai_scanner.app.limiter import limiter
 from ai_scanner.app.schemas import Token, UserCreate, UserLogin, UserRead
 from ai_scanner.app.services.audit import log_event
+from ai_scanner.app.services.user_service import create_user
 
 router = APIRouter()
 
@@ -22,20 +18,13 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+    # Password complexity is validated by the UserCreate schema; keep an explicit check here
+    # so registration failures return a clear 400 before any DB write.
     try:
         validate_password(payload.password)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    user = User(
-        email=payload.email,
-        full_name=payload.full_name,
-        hashed_password=get_password_hash(payload.password),
-        role=payload.role,
-        organization=payload.organization,
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    user = create_user(db, payload)
     log_event(action="user_register", user_id=user.id, resource_type="user", resource_id=str(user.id))
     return user
 

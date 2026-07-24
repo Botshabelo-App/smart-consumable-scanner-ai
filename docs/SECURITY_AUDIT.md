@@ -26,7 +26,7 @@ The RC1 security posture is appropriate for controlled pilot deployments when th
 | SEC-5 | `python-jose` pulls vulnerable `ecdsa` (Minerva timing) | Medium | Fixed | Replaced `python-jose` with `PyJWT`. |
 | SEC-6 | Starlette < 1.1.0 URL reconstruction vulnerabilities | Medium | Fixed | Upgraded `fastapi`/`starlette` and `pillow` to patched versions. |
 | SEC-7 | Pillow integer overflow / decompression bomb | Medium | Fixed | Upgraded `pillow` to 12.2.0. |
-| SEC-8 | Expo SDK 51 transitive high/critical vulnerabilities | High | Accepted for RC1 | Upgrade to Expo SDK 57+ before production release. |
+| SEC-8 | Expo SDK 51 transitive high/critical vulnerabilities | High | Fixed | Upgraded to Expo SDK 57.0.8; `npm audit` now reports only moderate-severity transitive issues. |
 | SEC-9 | Mobile local token storage uses `expo-secure-store`; no biometrics | Medium | Accepted for RC1 | Add optional biometric/PIN unlock and keychain-backed storage. |
 | SEC-10 | No Content Security Policy headers on API | Low | Accepted for RC1 | Add `TrustedHostMiddleware` and CSP headers in Nginx. |
 | SEC-11 | SQLite used in dev; PostgreSQL required for prod | Medium | Documented | Use managed PostgreSQL with TLS and backup in production. |
@@ -46,7 +46,9 @@ Re-run `pip-audit` after the next dependency update to verify.
 
 ### Mobile (`npm audit`)
 
-Expo SDK 51 and its transitive packages report high/critical advisories. The recommended fix is a major version upgrade to Expo SDK 57+ (or latest stable). Because Expo major upgrades affect native build configurations and EAS, this is scheduled for the RC1 → RC2 transition, not the pilot release candidate.
+Expo SDK 51 and its transitive packages reported high/critical advisories. The mobile app has been upgraded to Expo SDK 57.0.8. `npm audit` now reports only moderate-severity transitive issues.
+
+> Note: Expo SDK 57 and React Native 0.86 prefer Node.js `>=20.19.4`. The current CI/dev environment uses Node 20.18.1, which produces `EBADENGINE` warnings but still installs and type-checks. Update the build environment to a supported Node LTS before production builds.
 
 ## 5. Configuration Hardening Checklist
 

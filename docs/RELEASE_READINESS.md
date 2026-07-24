@@ -286,6 +286,15 @@ The API overhead (upload, auth, DB writes, serialization) adds ~80–120 ms on t
 - IoT warehouse temperature/humidity telemetry correlation.
 - Blockchain or traceability-API integration for provenance verification.
 
-## 8. Recommendation
+## 8. RC1 Stabilization Summary
 
-The Phase 3 feature set is **functionally complete** for an enterprise inspection MVP. Before presenting to real organizations, complete the validation steps above — especially dataset expansion, per-class model evaluation, and a supervised single-site pilot. The architecture supports production scaling, and all AI inferences are real and auditable.
+The project has moved from feature development into stabilization and pilot support mode.
+
+- Backend code reviewed: duplicate user-creation logic consolidated into `user_service.py`.
+- AI model registry enforces promotion only when the new model's validation score is at least as good as the active model (`force=true` available for explicit override).
+- Mobile dependencies upgraded to Expo SDK 57.0.8; `npm audit` now reports only moderate-severity issues.
+- A weekly `pilot_summary.py` generator and a final `RELEASE_CHECKLIST.md` are in place.
+
+## 9. Recommendation
+
+The RC1 feature set is **functionally complete** for controlled pilot deployments. Before presenting to real organizations, complete the validation steps above — especially dataset expansion, per-class model evaluation, and a supervised single-site pilot. The architecture supports production scaling, and all AI inferences are real and auditable.

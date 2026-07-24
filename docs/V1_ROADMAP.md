@@ -55,10 +55,12 @@ This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 
 ### 6. Production readiness validation
 
+- Complete `docs/RELEASE_CHECKLIST.md`.
 - Load testing with `backend/scripts/benchmark_api.py` at expected concurrency.
 - Penetration testing and security audit.
 - Backup/restore and disaster-recovery testing.
 - Documentation review and inspector training material.
+- Sign-off from engineering, AI/ML, security, QA, product, and pilot stakeholders.
 
 ### 7. Launch v1.0.0
 

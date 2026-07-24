@@ -9,7 +9,7 @@ from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Barcode, Product, Scan, User
 from ai_scanner.app.dependencies import require_user
 from ai_scanner.app.limiter import limiter
-from ai_scanner.app.schemas import Condition, ProductCategory, ScanCreate, ScanFeedbackPayload, ScanRead, ScanResult
+from ai_scanner.app.schemas import Condition, ProductCategory, ScanFeedbackPayload, ScanRead, ScanResult
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
 from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.openfoodfacts import lookup_barcode as openfoodfacts_lookup

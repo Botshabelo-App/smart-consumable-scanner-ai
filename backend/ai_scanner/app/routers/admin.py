@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Branch, Company, Device, User
-from ai_scanner.app.dependencies import get_password_hash, require_role
+from ai_scanner.app.dependencies import require_role
 from ai_scanner.app.schemas import BranchCreate, BranchRead, CompanyCreate, CompanyRead, DeviceCreate, DeviceRead, UserCreate, UserRead
+from ai_scanner.app.services.user_service import create_user
 
 router = APIRouter()
 
@@ -71,19 +72,9 @@ def list_devices(branch_id: UUID = None, db: Session = Depends(get_db), user=Dep
 def create_inspector(payload: UserCreate, db: Session = Depends(get_db), admin=Depends(require_role("administrator", "company_admin"))):
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    u = User(
-        email=payload.email,
-        full_name=payload.full_name,
-        hashed_password=get_password_hash(payload.password),
-        role=payload.role,
-        organization=payload.organization,
-        company_id=payload.company_id,
-        branch_id=payload.branch_id,
-    )
-    db.add(u)
-    db.commit()
-    db.refresh(u)
-    return u
+    if admin.role.value == "company_admin" and admin.company_id and payload.company_id != admin.company_id:
+        raise HTTPException(status_code=403, detail="Cannot create inspectors outside your company")
+    return create_user(db, payload)
 
 
 @router.get("/inspectors", response_model=List[UserRead])

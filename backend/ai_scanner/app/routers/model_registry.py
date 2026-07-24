@@ -91,12 +91,35 @@ def get_active_model(
 @router.post("/{model_id}/promote")
 def promote_model(
     model_id: str,
+    force: bool = False,
     db: Session = Depends(get_db),
     user=Depends(require_role("administrator")),
 ):
     model = db.query(ModelRegistry).filter(ModelRegistry.model_id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
+
+    active = (
+        db.query(ModelRegistry)
+        .filter(ModelRegistry.status == ModelDeploymentStatus.ACTIVE.value)
+        .order_by(ModelRegistry.deployed_at.desc())
+        .first()
+    )
+
+    def _score(metrics: dict) -> float:
+        # Prefer macro F1, fall back to accuracy, then to 0 if neither is present.
+        return float(metrics.get("f1_macro") or metrics.get("f1") or metrics.get("accuracy") or 0.0)
+
+    if active and not force:
+        current_score = _score(json.loads(active.validation_metrics or "{}"))
+        new_score = _score(json.loads(model.validation_metrics or "{}"))
+        if new_score < current_score:
+            raise HTTPException(
+                status_code=400,
+                detail=f"New model score ({new_score}) is lower than active model ({current_score}). "
+                       "Use force=true to override or improve validation metrics.",
+            )
+
     # Demote any currently active model
     db.query(ModelRegistry).filter(ModelRegistry.status == ModelDeploymentStatus.ACTIVE.value).update(
         {ModelRegistry.status: ModelDeploymentStatus.ARCHIVED.value}

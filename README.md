@@ -1,5 +1,9 @@
 # Smart Consumable Scanner AI
 
+**Project status: Release Candidate 1 (RC1) — Pilot Evaluation Phase.**
+
+This project is **not yet production-ready**. It is ready for controlled pilot deployments. Version 1.0.0 must only be released after the pilot success criteria, AI validation, security review, and release checklist in `docs/RELEASE_CHECKLIST.md` are completed and signed off.
+
 A production-ready, cross-platform mobile application for detecting expired, spoiled, damaged, counterfeit, or near-expiry consumable products using AI and a smartphone camera.
 
 ## Goals
