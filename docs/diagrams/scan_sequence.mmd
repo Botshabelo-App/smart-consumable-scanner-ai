@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor Inspector
+    participant Mobile as React Native App
+    participant Backend as FastAPI Backend
+    participant AIService as AI Service
+    participant DB as PostgreSQL
+    participant Storage as Object Storage
+
+    Inspector->>Mobile: Open camera, capture product image
+    Mobile->>Mobile: Validate image quality (blur, size)
+    Mobile->>Mobile: Optionally scan barcode/QR
+    Mobile->>Backend: POST /scans/ with image + GPS + barcode
+    Backend->>Storage: Save uploaded image
+    Backend->>AIService: POST /predict with image path
+    AIService->>AIService: YOLO object detection
+    AIService->>AIService: Product classification (EfficientNet)
+    AIService->>AIService: Spoilage / packaging analysis
+    AIService->>AIService: Build explainable findings
+    AIService-->>Backend: Return product, condition, confidence, findings
+    Backend->>Backend: Check barcode vs AI condition (discrepancy flag)
+    Backend->>DB: Store scan record
+    Backend-->>Mobile: Return ScanRead + report_id
+    Mobile->>Inspector: Display AI result with Accept / Override
+    alt Inspector accepts
+        Mobile->>Backend: POST /scans/{id}/feedback (accept)
+        Backend->>DB: Update inspector_accepted = true
+    else Inspector overrides
+        Mobile->>Backend: POST /scans/{id}/feedback (override + reason)
+        Backend->>DB: Update override condition/reason
+        Backend->>DB: Create ReviewRequest if severe
+    end
+    opt Generate report
+        Inspector->>Mobile: Request PDF/Excel/CSV report
+        Mobile->>Backend: GET /reports/{id}/download?format=
+        Backend->>Storage: Generate and store file
+        Backend-->>Mobile: Return download URL
+    end

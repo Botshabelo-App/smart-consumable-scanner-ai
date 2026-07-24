@@ -1,0 +1,49 @@
+flowchart TB
+    subgraph Identity
+        User["Inspector / Admin"]
+        Credentials["Hashed password (bcrypt)"]
+        JWT["Short-lived JWT access token"]
+        Refresh["Refresh token in secure store"]
+    end
+
+    subgraph AccessControl
+        RBAC["Role-based access (RBAC)"]
+        RateLimit["Rate limiting (slowapi)"]
+        CORS["CORS origin allow-list"]
+    end
+
+    subgraph Transport
+        TLS["TLS termination (Nginx / load balancer)"]
+        HTTPS["HTTPS between mobile and API"]
+    end
+
+    subgraph DataProtection
+        DB[("PostgreSQL encrypted at rest & in transit")]
+        Storage[("Encrypted object storage")]
+        SecureStore["expo-secure-store (mobile tokens)"]
+        Audit[("Audit logs / tamper-evident")]
+    end
+
+    subgraph Validation
+        Input["Input validation (Pydantic)"]
+        FileScan["File type/size validation"]
+        PipAudit["pip-audit"]
+        NpmAudit["npm audit"]
+    end
+
+    User -->|Login| Credentials
+    Credentials -->|Verify| JWT
+    JWT --> RBAC
+    RBAC -->|Authorize| Backend
+    RateLimit -->|Protect| Backend
+    CORS -->|Restrict| Backend
+    TLS --> HTTPS
+    HTTPS --> Backend
+    Backend -->|Store| DB
+    Backend -->|Store| Storage
+    MobileApp -->|Store token| SecureStore
+    Backend -->|Log| Audit
+    Input --> Backend
+    FileScan --> Backend
+    PipAudit --> Backend
+    NpmAudit --> MobileApp

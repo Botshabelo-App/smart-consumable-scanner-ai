@@ -1,3 +1,8 @@
+# Copyright 2026 Moeketsi Daniel and contributors.
+# All rights reserved.
+# This file is part of the Smart Consumable Scanner AI project.
+# Use is subject to the project licence terms.
+
 """Benchmark backend + AI service end-to-end latency and throughput.
 
 Usage:

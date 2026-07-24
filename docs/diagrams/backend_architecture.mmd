@@ -1,0 +1,53 @@
+flowchart TB
+    subgraph Transport
+        Router["FastAPI Routers"]
+        Auth["JWT + RBAC middleware"]
+        RateLimit["slowapi rate limiting"]
+    end
+
+    subgraph Services
+        UserService["user_service"]
+        AuditService["audit_service"]
+        ReportService["report_service"]
+        AIServiceClient["ai_client"]
+        PilotReporting["pilot_reporting"]
+    end
+
+    subgraph Routers
+        AuthRouter["/auth"]
+        ScansRouter["/scans"]
+        ReportsRouter["/reports"]
+        AdminRouter["/admin"]
+        ReviewsRouter["/reviews"]
+        MonitoringRouter["/monitoring"]
+        ModelRegistryRouter["/model-registry"]
+    end
+
+    subgraph Persistence
+        SQLAlchemy["SQLAlchemy ORM"]
+        PostgreSQL[("PostgreSQL")]
+        Storage[("Object storage")]
+    end
+
+    Auth --> Router
+    RateLimit --> Router
+    Router --> AuthRouter
+    Router --> ScansRouter
+    Router --> ReportsRouter
+    Router --> AdminRouter
+    Router --> ReviewsRouter
+    Router --> MonitoringRouter
+    Router --> ModelRegistryRouter
+
+    AuthRouter --> UserService
+    ScansRouter --> AIServiceClient
+    ScansRouter --> AuditService
+    ReportsRouter --> ReportService
+    AdminRouter --> UserService
+    MonitoringRouter --> PilotReporting
+    ModelRegistryRouter --> SQLAlchemy
+
+    UserService --> SQLAlchemy
+    ReportService --> Storage
+    AIServiceClient --> AI["AI Service (HTTP)"]
+    SQLAlchemy --> PostgreSQL

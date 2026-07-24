@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased] — RC1 Maintenance Mode
 
 ### Added
+- Branching and release policy (`BRANCHING.md`) documenting `main` freeze, branch strategy, and version gates.
+- Business preparation documents in `docs/business/`: Executive Overview, Product Brochure, Technical White Paper, Pilot Proposal, Implementation Guide, Training Guide, and FAQ.
+- Final architecture package in `docs/diagrams/` with Mermaid sources and rendered SVG/PNG/PDF exports.
+- `INTELLECTUAL_PROPERTY.md` with copyright, ownership, trademark, patent, and third-party licence information.
+- `scripts/add_license_headers.py` and copyright headers added to all project `.py`, `.ts`, and `.tsx` source files.
 - Maintenance Mode documentation (`docs/MAINTENANCE.md`).
 - AI Governance doc (`docs/AI_GOVERNANCE.md`) with model cards and dataset standards.
 - Long-Term Dataset Strategy (`docs/DATASET_STRATEGY.md`).
@@ -15,7 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Official project status updated to **Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode**.
-- Documentation cross-reviewed for consistency across README, release checklist, project status, roadmap, security audit, release readiness, pilot plan, validation/regulatory, and operations guide.
+- Security dependency cleanup: upgraded `fastapi`, `starlette`, `pydantic`, `python-multipart`, `pyjwt`, `pillow`, `pytest`, and `setuptools`; removed `python-jose` and `ecdsa`.
+- Documentation cross-reviewed for consistency across README, release checklist, project status, roadmap, security audit, release readiness, pilot plan, validation/regulatory, operations guide, device testing, architecture, API, and deployment checklist.
 
 ## [0.6.0] — 2026-07-24 — RC1 Pilot Candidate
 

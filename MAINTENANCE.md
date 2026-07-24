@@ -1,6 +1,6 @@
 # Maintenance Mode Guide
 
-The Smart Consumable Scanner AI project is in **Maintenance Mode** while Release Candidate 1 (RC1) pilots are evaluated.
+The Smart Consumable Scanner AI project is in **Maintenance Mode** while Release Candidate 1 (RC1) pilots are evaluated. The `main` branch is frozen; see `BRANCHING.md` for the full branch, release, and freeze policy.
 
 ## What Maintenance Mode means
 

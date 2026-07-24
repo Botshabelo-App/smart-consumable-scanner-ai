@@ -1,3 +1,8 @@
+# Copyright 2026 Moeketsi Daniel and contributors.
+# All rights reserved.
+# This file is part of the Smart Consumable Scanner AI project.
+# Use is subject to the project licence terms.
+
 """Download a Hugging Face image dataset and organize it by category and condition."""
 
 import argparse

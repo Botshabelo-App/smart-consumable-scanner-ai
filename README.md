@@ -141,8 +141,12 @@ See [docs/API.md](docs/API.md).
 - [docs/AI_GOVERNANCE.md](docs/AI_GOVERNANCE.md) — model cards, validation, promotion, and retirement policy.
 - [docs/DATASET_STRATEGY.md](docs/DATASET_STRATEGY.md) — long-term dataset collection, annotation, and retraining policy.
 - [docs/MAINTENANCE.md](docs/MAINTENANCE.md) — Maintenance Mode rules, allowed changes, and weekly/monthly tasks.
+- [docs/diagrams/README.md](docs/diagrams/README.md) — system, database, sequence, AI, mobile, backend, deployment, and security architecture diagrams.
+- [docs/business/README.md](docs/business/README.md) — executive overview, product brochure, technical white paper, pilot proposal, implementation and training guides, FAQ.
+- [BRANCHING.md](BRANCHING.md) — branch freeze, versioning, and release policy.
+- [INTELLECTUAL_PROPERTY.md](INTELLECTUAL_PROPERTY.md) — copyright, ownership, trademarks, third-party licences.
 - [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTORS.md](CONTRIBUTORS.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md).
 
 ## License
 
-Proprietary — all rights reserved.
+Proprietary — all rights reserved. See [INTELLECTUAL_PROPERTY.md](INTELLECTUAL_PROPERTY.md) for copyright, third-party licences, and open-source attributions.
