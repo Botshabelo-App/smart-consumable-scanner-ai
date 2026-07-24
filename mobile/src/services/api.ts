@@ -121,6 +121,22 @@ export async function generateReport(
   return data;
 }
 
+export async function submitScanFeedback(
+  scanId: string,
+  accepted: boolean,
+  overrideCondition?: string,
+  reason?: string,
+  additionalNotes?: string
+): Promise<ScanResult> {
+  const { data } = await api.post(`/scans/${scanId}/feedback`, {
+    accepted,
+    override_condition: overrideCondition,
+    reason,
+    additional_notes: additionalNotes,
+  });
+  return data;
+}
+
 export async function createReviewRequest(scanId: string, suggestedCondition: string, reviewerNotes?: string): Promise<ReviewRequest> {
   const { data } = await api.post('/reviews/', { scan_id: scanId, suggested_condition: suggestedCondition, reviewer_notes: reviewerNotes });
   return data;

@@ -2,13 +2,14 @@
 
 This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 
-## Current state (end of Phase 3)
+## Current state (end of Phase 6)
 
 - Real AI inference pipeline (YOLOv8, EfficientNet-B0, MobileNetV3, OpenCV).
-- Backend with auth, RBAC, multi-organization, reports, analytics, reviews, and audit logs.
-- Mobile app with camera, barcode scanning, dashboards, and localization scaffolding.
+- Backend with auth, RBAC, multi-organization, reports, analytics, reviews, audit logs, model registry, monitoring, and pilot profiles.
+- Mobile app with camera, barcode scanning, dashboards, localization scaffolding, and inspector accept/override workflow.
 - Kubernetes, Nginx, Docker Compose, and EAS deployment configurations.
-- Initial test results, evaluation metrics, and benchmarks documented.
+- Dataset, training, validation, explainability, benchmarking, device testing, and regulatory documentation in place.
+- Security audit completed with documented remediations.
 
 ## Milestones to v1.0.0
 
@@ -24,8 +25,8 @@ This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 
 - Make PostgreSQL the default database.
 - Replace local filesystem image/report storage with S3-compatible object storage.
-- Add rate limiting, DDoS protection, and security headers.
-- Patch all high/critical dependency vulnerabilities.
+- Rate limiting, password policy, PyJWT tokens, and security headers in place.
+- Patch remaining high/critical dependency vulnerabilities (notably Expo SDK major upgrade).
 - Add CI/CD pipeline (lint, test, build, deploy).
 
 ### 3. Pilot programs
@@ -34,6 +35,9 @@ This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 - Phase B: single-site friendly pilot (supermarket/school/warehouse).
 - Phase C: government/municipal inspector pilot.
 - Phase D: multi-organization scaled pilot.
+- Configure pilot profiles per organisation type in `/pilot-profiles`.
+- Register and promote validated models in `/model-registry`.
+- Track success metrics in `/monitoring/pilot`.
 - Collect feedback, review requests, and approved labels for retraining.
 
 ### 4. Mobile & offline improvements

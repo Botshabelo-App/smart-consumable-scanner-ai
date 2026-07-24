@@ -1,9 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class UserRole(str, Enum):
@@ -54,6 +54,17 @@ class UserCreate(BaseModel):
     organization: Optional[str] = None
     company_id: Optional[UUID] = None
     branch_id: Optional[UUID] = None
+
+    @field_validator("password")
+    @classmethod
+    def _validate_password(cls, v: str) -> str:
+        from ai_scanner.app.dependencies import validate_password
+
+        try:
+            validate_password(v)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
 
 
 class UserLogin(BaseModel):
@@ -129,9 +140,23 @@ class ScanRead(BaseModel):
     longitude: Optional[float] = None
     created_at: datetime
 
+    # Phase 6 feedback
+    inspector_accepted: Optional[bool] = None
+    override_condition: Optional[Condition] = None
+    override_reason: Optional[str] = None
+    override_notes: Optional[str] = None
+    override_image_paths: List[str] = []
+
     @field_validator("findings", mode="before")
     @classmethod
     def _split_findings(cls, v):
+        if isinstance(v, str):
+            return [line for line in v.split("\n") if line]
+        return v or []
+
+    @field_validator("override_image_paths", mode="before")
+    @classmethod
+    def _split_override_images(cls, v):
         if isinstance(v, str):
             return [line for line in v.split("\n") if line]
         return v or []
@@ -357,3 +382,109 @@ class ReviewRequestRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Phase 6: pilot deployment & continuous learning
+
+
+class OrganizationType(str, Enum):
+    SCHOOL_CANTEEN = "school_canteen"
+    SCHOOL_NUTRITION_PROGRAM = "school_nutrition_program"
+    SUPERMARKET = "supermarket"
+    WAREHOUSE = "warehouse"
+    FOOD_MANUFACTURER = "food_manufacturer"
+    WHOLESALER = "wholesaler"
+    RESTAURANT = "restaurant"
+    HOTEL = "hotel"
+    MUNICIPAL_HEALTH = "municipal_health"
+    GOVERNMENT_INSPECTOR = "government_inspector"
+    OTHER = "other"
+
+
+class PilotProfileCreate(BaseModel):
+    name: str
+    organization_type: OrganizationType
+    settings: Dict[str, Any] = {}
+    branding: Dict[str, Any] = {}
+    inspection_workflow: Dict[str, Any] = {}
+
+
+class PilotProfileRead(BaseModel):
+    id: UUID
+    name: str
+    organization_type: OrganizationType
+    settings: Dict[str, Any]
+    branding: Dict[str, Any]
+    inspection_workflow: Dict[str, Any]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ScanFeedbackPayload(BaseModel):
+    accepted: bool
+    override_condition: Optional[Condition] = None
+    reason: Optional[str] = None
+    additional_notes: Optional[str] = None
+
+
+class ModelDeploymentStatus(str, Enum):
+    STAGING = "staging"
+    ACTIVE = "active"
+    ROLLED_BACK = "rolled_back"
+    ARCHIVED = "archived"
+
+
+class ModelRegistryCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_id: str
+    version: str
+    dataset_version: str
+    training_date: datetime
+    validation_metrics: Dict[str, Any]
+    supported_categories: List[str]
+    artifact_path: str
+    checksum: str
+    status: ModelDeploymentStatus = ModelDeploymentStatus.STAGING
+
+
+class ModelRegistryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
+
+    id: UUID
+    model_id: str
+    version: str
+    dataset_version: str
+    training_date: datetime
+    validation_metrics: Dict[str, Any]
+    supported_categories: List[str]
+    artifact_path: str
+    checksum: str
+    status: ModelDeploymentStatus
+    deployed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class OperationalMetrics(BaseModel):
+    inference_success_rate: float
+    average_scan_time_ms: float
+    average_confidence: float
+    api_latency_p95_ms: float
+    offline_sync_success_rate: float
+    device_health_score: float
+    crash_count_24h: int
+    active_model_version: str
+    total_scans_24h: int
+
+
+class PilotSuccessMetrics(BaseModel):
+    inspection_completion_rate: float
+    ai_agreement_rate: float
+    false_positive_rate: float
+    false_negative_rate: float
+    user_satisfaction_score: float
+    average_inspection_time_ms: float
+    report_generation_success_rate: float
+    offline_sync_reliability: float

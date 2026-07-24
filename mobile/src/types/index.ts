@@ -67,6 +67,10 @@ export interface ScanResult {
   latitude?: number;
   longitude?: number;
   created_at: string;
+  inspector_accepted?: boolean | null;
+  override_condition?: Condition;
+  override_reason?: string;
+  override_notes?: string;
 }
 
 export interface DashboardStats {

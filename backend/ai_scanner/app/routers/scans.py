@@ -2,13 +2,14 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Barcode, Product, Scan, User
 from ai_scanner.app.dependencies import require_user
-from ai_scanner.app.schemas import Condition, ProductCategory, ScanCreate, ScanRead, ScanResult
+from ai_scanner.app.limiter import limiter
+from ai_scanner.app.schemas import Condition, ProductCategory, ScanCreate, ScanFeedbackPayload, ScanRead, ScanResult
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
 from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.openfoodfacts import lookup_barcode as openfoodfacts_lookup
@@ -52,7 +53,9 @@ def _discrepancy_reason(ai_condition: Condition, expiry_date: Optional[datetime]
 
 
 @router.post("/analyze", response_model=ScanRead)
+@limiter.limit("30/minute")
 async def analyze_image(
+    request: Request,
     image: UploadFile = File(...),
     product_name: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
@@ -152,4 +155,43 @@ def get_scan(scan_id: str, db: Session = Depends(get_db), user: User = Depends(r
     scan = db.query(Scan).filter(Scan.id == uuid.UUID(scan_id)).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
+    return scan
+
+
+@router.post("/{scan_id}/feedback", response_model=ScanRead)
+def submit_scan_feedback(
+    scan_id: str,
+    payload: ScanFeedbackPayload,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    """Inspector accepts or overrides an AI assessment and records the reason."""
+    scan = db.query(Scan).filter(Scan.id == uuid.UUID(scan_id)).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan.inspector_accepted = payload.accepted
+    if not payload.accepted:
+        scan.override_condition = payload.override_condition.value if payload.override_condition else None
+        scan.override_reason = payload.reason
+        scan.override_notes = payload.additional_notes
+    else:
+        scan.override_condition = None
+        scan.override_reason = None
+        scan.override_notes = None
+
+    db.commit()
+    db.refresh(scan)
+
+    action = "scan_accepted" if payload.accepted else "scan_overridden"
+    details = f"accepted={payload.accepted}"
+    if not payload.accepted:
+        details += f", override_condition={scan.override_condition}, reason={scan.override_reason}"
+    log_event(
+        action=action,
+        user_id=user.id,
+        resource_type="scan",
+        resource_id=scan_id,
+        details=details,
+    )
     return scan

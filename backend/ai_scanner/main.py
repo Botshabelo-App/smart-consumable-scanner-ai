@@ -1,15 +1,33 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
-from ai_scanner.app.routers import admin, analytics, audit, auth, dashboard, products, reports, reviews, scans
+from ai_scanner.app.limiter import limiter
+
+from ai_scanner.app.routers import (
+    admin,
+    analytics,
+    audit,
+    auth,
+    dashboard,
+    model_registry,
+    monitoring,
+    pilot_profiles,
+    products,
+    reports,
+    reviews,
+    scans,
+)
 from ai_scanner.config import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from ai_scanner.app.db.database import engine, Base
+    from ai_scanner.app.db.database import Base, engine
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -17,10 +35,15 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Smart Consumable Scanner AI API",
     description="Enterprise AI inspection system backend.",
-    version="0.3.0",
+    version="0.6.0-rc1",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
+# CORS is intentionally permissive for Expo development. In production, set
+# CORS_ORIGINS to the exact mobile/dashboard domains.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -38,8 +61,12 @@ app.include_router(products.router, prefix="/products", tags=["products"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(reviews.router, prefix="/reviews", tags=["reviews"])
 app.include_router(audit.router, prefix="/admin", tags=["admin"])
+app.include_router(pilot_profiles.router, prefix="/pilot-profiles", tags=["pilot"])
+app.include_router(model_registry.router, prefix="/model-registry", tags=["models"])
+app.include_router(monitoring.router, prefix="/monitoring", tags=["monitoring"])
 
 
 @app.get("/health", tags=["health"])
-def health_check():
+@limiter.limit("60/minute")
+def health_check(request: Request):
     return {"status": "ok"}

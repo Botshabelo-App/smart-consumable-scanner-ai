@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 
-import { analyzeImage, lookupBarcode, ScanPayload } from '../services/api';
+import { analyzeImage, lookupBarcode, ScanPayload, submitScanFeedback } from '../services/api';
 import { Condition, ScanResult } from '../types';
 
 const conditionColor: Record<Condition, string> = {
@@ -38,8 +38,13 @@ export default function ScanScreen() {
   const [scanBarcode, setScanBarcode] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [continuous, setContinuous] = useState(false);
   const [qualityNote, setQualityNote] = useState<string | null>(null);
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideCondition, setOverrideCondition] = useState<Condition>('fresh');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideNotes, setOverrideNotes] = useState('');
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -153,6 +158,42 @@ export default function ScanScreen() {
     setExpiryDate('');
     setResult(null);
     setQualityNote(null);
+    setShowOverride(false);
+    setOverrideReason('');
+    setOverrideNotes('');
+  };
+
+  const handleAccept = async () => {
+    if (!result || !result.id) return;
+    setFeedbackLoading(true);
+    try {
+      const updated = await submitScanFeedback(result.id, true);
+      setResult(updated);
+      Alert.alert('Feedback recorded', 'You accepted the AI assessment.');
+    } catch (e: any) {
+      Alert.alert('Feedback error', e?.response?.data?.detail || e.message);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleOverride = async () => {
+    if (!result || !result.id) return;
+    if (!overrideReason.trim()) {
+      Alert.alert('Reason required', 'Please provide a reason for overriding the AI.');
+      return;
+    }
+    setFeedbackLoading(true);
+    try {
+      const updated = await submitScanFeedback(result.id, false, overrideCondition, overrideReason, overrideNotes);
+      setResult(updated);
+      setShowOverride(false);
+      Alert.alert('Feedback recorded', `Overridden to ${overrideCondition}.`);
+    } catch (e: any) {
+      Alert.alert('Feedback error', e?.response?.data?.detail || e.message);
+    } finally {
+      setFeedbackLoading(false);
+    }
   };
 
   if (!permission?.granted) {
@@ -255,6 +296,58 @@ export default function ScanScreen() {
             <Text style={styles.detail}>Expiry risk: {result.expiry_risk}</Text>
           )}
           <Text style={styles.detail}>Date: {new Date(result.created_at).toLocaleString()}</Text>
+
+          {result.inspector_accepted === true && (
+            <Text style={styles.accepted}>Inspector accepted this assessment.</Text>
+          )}
+          {result.inspector_accepted === false && (
+            <Text style={styles.overridden}>
+              Inspector overrode to {result.override_condition}: {result.override_reason}
+            </Text>
+          )}
+
+          {result.inspector_accepted === null || result.inspector_accepted === undefined ? (
+            <View style={styles.row}>
+              <Button title="Accept AI" onPress={handleAccept} disabled={feedbackLoading} />
+              <View style={{ width: 8 }} />
+              <Button title="Override AI" onPress={() => setShowOverride(true)} disabled={feedbackLoading} />
+            </View>
+          ) : null}
+
+          {showOverride && (
+            <View style={styles.overrideForm}>
+              <Text style={styles.subheading}>Override to:</Text>
+              <View style={styles.row}>
+                {(['fresh', 'near_expiry', 'suspicious', 'expired'] as Condition[]).map((c) => (
+                  <View key={c} style={styles.conditionChip}>
+                    <Button
+                      title={c}
+                      onPress={() => setOverrideCondition(c)}
+                      color={overrideCondition === c ? conditionColor[c] : '#888'}
+                    />
+                  </View>
+                ))}
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Reason for override (required)"
+                value={overrideReason}
+                onChangeText={setOverrideReason}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Additional notes (optional)"
+                value={overrideNotes}
+                onChangeText={setOverrideNotes}
+                multiline
+              />
+              <View style={styles.row}>
+                <Button title="Submit override" onPress={handleOverride} disabled={feedbackLoading} />
+                <View style={{ width: 8 }} />
+                <Button title="Cancel" onPress={() => setShowOverride(false)} disabled={feedbackLoading} />
+              </View>
+            </View>
+          )}
         </View>
       )}
     </ScrollView>
@@ -352,5 +445,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  accepted: {
+    color: '#2e7d32',
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  overridden: {
+    color: '#c62828',
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  overrideForm: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#ddd',
+  },
+  conditionChip: {
+    marginHorizontal: 2,
   },
 });

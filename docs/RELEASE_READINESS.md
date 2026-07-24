@@ -1,6 +1,8 @@
-# Release Readiness — Phase 4 Validation & Version 1.0.0 Roadmap
+# Release Readiness — RC1 Pilot Candidate & Version 1.0.0 Roadmap
 
 This document consolidates test results, model evaluation metrics, performance benchmarks, deployment readiness, known limitations, a recommended pilot plan, and the roadmap toward a production 1.0.0 release.
+
+> **Current status:** Release Candidate 1 (RC1). The architecture, backend, mobile app, security, reporting, and AI validation pipeline are in place. The software is ready for controlled pilot deployments. Version 1.0.0 must only be released after successful pilot validation on a sufficiently large, representative dataset and real-world device testing.
 
 ## 1. Test Results
 

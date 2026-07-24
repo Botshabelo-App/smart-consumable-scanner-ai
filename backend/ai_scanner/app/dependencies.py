@@ -1,11 +1,12 @@
+import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
@@ -27,6 +28,16 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(_truncated(password), bcrypt.gensalt()).decode("utf-8")
 
 
+def validate_password(password: str) -> None:
+    """Enforce a reasonable password policy for production users."""
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Za-z]", password):
+        raise ValueError("Password must contain at least one letter")
+    if not re.search(r"\d", password):
+        raise ValueError("Password must contain at least one digit")
+
+
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
@@ -46,7 +57,7 @@ async def get_current_user(
         if user_id_str is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         user_id = uuid.UUID(user_id_str)
-    except (JWTError, ValueError):
+    except (jwt.PyJWTError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:

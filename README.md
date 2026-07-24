@@ -22,8 +22,9 @@ A production-ready, cross-platform mobile application for detecting expired, spo
 - **Multi-language scaffolding**: `i18n-js` + `expo-localization` with translation files for all 11 South African official languages.
 - **Enterprise administration**: company/branch/device/inspector/role management with RBAC.
 - **Continuous AI improvement**: review workflow for inspector disagreements, approved-review export for offline retraining, and controlled model-deployment pipeline.
-- **Security**: JWT auth, role-based endpoints, encrypted token storage with `expo-secure-store`, audit logs, and offline scan queue.
+- **Security**: JWT auth, role-based endpoints, encrypted token storage with `expo-secure-store`, audit logs, offline scan queue, rate limiting, password policy, and PyJWT-based tokens.
 - **Production deployment**: Kubernetes manifests, Nginx reverse-proxy config, and EAS production build config.
+- **Pilot deployment & continuous learning (RC1)**: configurable pilot profiles for every target organisation type, inspector accept/override workflow with reasons, operational monitoring dashboards, AI model registry with promote/rollback, and pilot success metrics.
 
 ## Repository Structure
 
@@ -60,11 +61,12 @@ npx expo start
 
 Use the Expo Go app on Android/iOS, or run `i` / `a` in the terminal.
 
-### 3. Seed manufacturer examples
+### 3. Seed manufacturer examples and pilot profiles
 
 ```bash
 cd backend
 DATABASE_URL=postgresql://... python scripts/seed_manufacturers.py
+DATABASE_URL=postgresql://... python scripts/seed_pilot_profiles.py
 ```
 
 ## Training your own models
@@ -127,6 +129,9 @@ See [docs/API.md](docs/API.md).
 - [docs/V1_ROADMAP.md](docs/V1_ROADMAP.md) — detailed roadmap to Version 1.0.0.
 - [docs/VALIDATION_AND_REGULATORY.md](docs/VALIDATION_AND_REGULATORY.md) — validation methodology, dataset description, limitations, and risk assessment.
 - [docs/DEVICE_TESTING.md](docs/DEVICE_TESTING.md) — real device testing protocol and `PerformanceProfiler` usage.
+- [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) — RC1 security audit findings and remediations.
+- [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) — user, inspector, admin, deployment, DR, and AI model management guides.
+- [docs/PILOT_METRICS.md](docs/PILOT_METRICS.md) — measurable pilot success criteria and go/no-go gates.
 
 ## License
 

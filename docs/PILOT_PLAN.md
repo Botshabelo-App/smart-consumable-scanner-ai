@@ -1,5 +1,7 @@
 # Recommended Pilot Plan
 
+**Status:** Release Candidate 1 (RC1) — ready for controlled pilot deployments.
+
 This plan moves Smart Consumable Scanner AI from validated MVP to production-ready deployment through four low-risk, iterative pilots.
 
 ## Phase A — Internal validation (2–4 weeks)
@@ -62,6 +64,7 @@ If all criteria are met, proceed to full production release 1.0.0.
 
 Before inviting external pilot users:
 
+- [ ] Each pilot site is assigned a `PilotProfile` in `/pilot-profiles` matching its organisation type (school, supermarket, warehouse, manufacturer, wholesaler, restaurant, hotel, municipal health, government inspector).
 - [ ] `download_datasets.py` has been run and the local `data/raw` folder contains representative categories and conditions.
 - [ ] `quality.py` has been executed and all corrupted, duplicate, and blurred images have been reviewed.
 - [ ] `benchmark_backbones.py` has selected the best architecture for the target devices.
@@ -71,6 +74,9 @@ Before inviting external pilot users:
 - [ ] `calibrate` produces a reliability diagram with ECE < 0.1.
 - [ ] Mobile `PerformanceProfiler` has been tested on at least one low-end, one mid-range, and one flagship device.
 - [ ] `docs/VALIDATION_AND_REGULATORY.md` has been updated with the final dataset size, model version, and risk assessment.
+- [ ] A candidate model is registered in `/model-registry` with validation metrics, dataset version, checksum, and promoted to `active` only after review.
+- [ ] `/monitoring/operational` and `/monitoring/pilot` are returning data and the team has a daily/weekly review cadence.
+- [ ] `docs/SECURITY_AUDIT.md` and `docs/OPERATIONS_GUIDE.md` have been reviewed by the pilot team.
 - [ ] Pilot user agreements, data-consent forms, and incident-response contacts are in place.
 - [ ] A weekly feedback and review cadence is scheduled.
 

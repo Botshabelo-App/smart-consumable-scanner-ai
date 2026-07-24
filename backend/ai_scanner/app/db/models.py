@@ -13,6 +13,21 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
+class PilotProfile(Base):
+    __tablename__ = "pilot_profiles"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    organization_type = Column(String, nullable=False)
+    settings = Column(Text, default="{}")
+    branding = Column(Text, default="{}")
+    inspection_workflow = Column(Text, default="{}")
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), onupdate=utc_now)
+
+    companies = relationship("Company", back_populates="pilot_profile")
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -21,8 +36,10 @@ class Company(Base):
     registration_number = Column(String, nullable=True)
     contact_email = Column(String, nullable=True)
     contact_phone = Column(String, nullable=True)
+    pilot_profile_id = Column(PGUUID(as_uuid=True), ForeignKey("pilot_profiles.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
+    pilot_profile = relationship("PilotProfile", back_populates="companies")
     branches = relationship("Branch", back_populates="company")
     users = relationship("User", back_populates="company", foreign_keys="User.company_id")
     products = relationship("Product", back_populates="company")
@@ -149,6 +166,13 @@ class Scan(Base):
     longitude = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
+    # Phase 6: inspector human-in-the-loop feedback
+    inspector_accepted = Column(Boolean, nullable=True)
+    override_condition = Column(String, nullable=True)
+    override_reason = Column(Text, nullable=True)
+    override_notes = Column(Text, nullable=True)
+    override_image_paths = Column(Text, nullable=True)
+
     inspector_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     inspector = relationship("User", back_populates="scans")
 
@@ -205,3 +229,20 @@ class AuditLog(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     user = relationship("User")
+
+
+class ModelRegistry(Base):
+    __tablename__ = "model_registry"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model_id = Column(String, nullable=False, unique=True)
+    version = Column(String, nullable=False)
+    dataset_version = Column(String, nullable=False)
+    training_date = Column(DateTime(timezone=True), nullable=False)
+    validation_metrics = Column(Text, nullable=False)  # JSON
+    supported_categories = Column(Text, nullable=False)  # JSON list
+    artifact_path = Column(String, nullable=False)
+    checksum = Column(String, nullable=False)
+    status = Column(String, default="staging")  # staging, active, rolled_back, archived
+    deployed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
