@@ -12,4 +12,4 @@ This folder contains materials for organisations, executives, regulators, and pi
 | [TRAINING_GUIDE.md](TRAINING_GUIDE.md) | Inspector, reviewer, and administrator training material. |
 | [FAQ.md](FAQ.md) | Frequently asked questions about accuracy, limitations, offline use, and pilots. |
 
-All documents reflect the current **Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode** status. They clearly state the smartphone-camera limitations and the gated path to Version 1.0.0.
+All documents reflect the current **Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode** status. They clearly state the smartphone-camera limitations and the gated path to Version 1.0.0.

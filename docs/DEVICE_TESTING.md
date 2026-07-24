@@ -1,6 +1,6 @@
 # Real Device Testing Guide
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
 
 This document describes how to validate the Smart Consumable Scanner AI mobile app on real Android and iOS devices.
 

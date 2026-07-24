@@ -2,7 +2,7 @@
 
 This guide covers user, inspector, administrator, deployment, troubleshooting, disaster recovery, backup/restore, AI model management, and data governance.
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. No new features should be added unless required by pilot feedback or critical business/regulatory requirements.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. No new features should be added unless required by pilot feedback or critical business/regulatory requirements.
 
 ## 1. User Manual
 

@@ -1,6 +1,6 @@
 # Roadmap to Version 1.0.0 Production Release
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
 
 This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 

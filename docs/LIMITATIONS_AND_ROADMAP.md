@@ -1,6 +1,6 @@
 # Limitations and Future Sensor Roadmap
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. The capabilities and limitations described here reflect the current smartphone-camera-only release. Future sensor support is on the roadmap and will require separate validation before claims are made.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. The capabilities and limitations described here reflect the current smartphone-camera-only release. Future sensor support is on the roadmap and will require separate validation before claims are made.
 
 ## What the smartphone camera can and cannot do
 

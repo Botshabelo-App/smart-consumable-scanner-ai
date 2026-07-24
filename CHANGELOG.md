@@ -4,9 +4,10 @@ All notable changes to the Smart Consumable Scanner AI project are documented in
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased] — RC1 Maintenance Mode
+## [Unreleased] — Engineering Complete / RC1 Maintenance Mode
 
 ### Added
+- Final engineering milestone documents: `docs/FINAL_ENGINEERING_REPORT.md`, `docs/FINAL_FEATURE_MATRIX.md`, `docs/KNOWN_LIMITATIONS.md`, `docs/RELEASE_DECISION.md`, and `docs/NEXT_PHASE.md`.
 - Branching and release policy (`BRANCHING.md`) documenting `main` freeze, branch strategy, and version gates.
 - Business preparation documents in `docs/business/`: Executive Overview, Product Brochure, Technical White Paper, Pilot Proposal, Implementation Guide, Training Guide, and FAQ.
 - Final architecture package in `docs/diagrams/` with Mermaid sources and rendered SVG/PNG/PDF exports.
@@ -19,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `CHANGELOG.md`, `CONTRIBUTORS.md`, and `LESSONS_LEARNED.md`.
 
 ### Changed
-- Official project status updated to **Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode**.
+- Official project status updated to **Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode**.
 - Security dependency cleanup: upgraded `fastapi`, `starlette`, `pydantic`, `python-multipart`, `pyjwt`, `pillow`, `pytest`, and `setuptools`; removed `python-jose` and `ecdsa`.
 - Documentation cross-reviewed for consistency across README, release checklist, project status, roadmap, security audit, release readiness, pilot plan, validation/regulatory, operations guide, device testing, architecture, API, and deployment checklist.
 

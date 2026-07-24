@@ -1,8 +1,8 @@
 # Smart Consumable Scanner AI
 
-**Project status: Release Candidate 1 (RC1) — Pilot Evaluation Phase.**
+**Project status: Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.**
 
-This project is **not yet production-ready**. It is ready for controlled pilot deployments. Version 1.0.0 must only be released after the pilot success criteria, AI validation, security review, and release checklist in `docs/RELEASE_CHECKLIST.md` are completed and signed off.
+The engineering baseline is complete and the `main` branch is frozen. This project is **not yet production-ready**. Version 1.0.0 must only be released after successful pilot deployments, expert-labelled dataset expansion, independent AI validation, customer acceptance, and the release checklist in `docs/RELEASE_CHECKLIST.md` are completed and signed off.
 
 A production-ready, cross-platform mobile application for detecting expired, spoiled, damaged, counterfeit, or near-expiry consumable products using AI and a smartphone camera.
 
@@ -137,12 +137,17 @@ See [docs/API.md](docs/API.md).
 - [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) — user, inspector, admin, deployment, DR, and AI model management guides.
 - [docs/PILOT_METRICS.md](docs/PILOT_METRICS.md) — measurable pilot success criteria and go/no-go gates.
 - [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) — final sign-off checklist for Version 1.0.0.
-- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) — current RC1 Maintenance Mode status and release path.
+- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) — current Engineering Complete / RC1 status and release path.
 - [docs/AI_GOVERNANCE.md](docs/AI_GOVERNANCE.md) — model cards, validation, promotion, and retirement policy.
 - [docs/DATASET_STRATEGY.md](docs/DATASET_STRATEGY.md) — long-term dataset collection, annotation, and retraining policy.
 - [docs/MAINTENANCE.md](docs/MAINTENANCE.md) — Maintenance Mode rules, allowed changes, and weekly/monthly tasks.
 - [docs/diagrams/README.md](docs/diagrams/README.md) — system, database, sequence, AI, mobile, backend, deployment, and security architecture diagrams.
 - [docs/business/README.md](docs/business/README.md) — executive overview, product brochure, technical white paper, pilot proposal, implementation and training guides, FAQ.
+- [docs/FINAL_ENGINEERING_REPORT.md](docs/FINAL_ENGINEERING_REPORT.md) — engineering completion summary.
+- [docs/FINAL_FEATURE_MATRIX.md](docs/FINAL_FEATURE_MATRIX.md) — full feature status.
+- [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — current technical and AI limitations.
+- [docs/RELEASE_DECISION.md](docs/RELEASE_DECISION.md) — go/no-go and Version 1.0.0 gates.
+- [docs/NEXT_PHASE.md](docs/NEXT_PHASE.md) — pilot validation plan and v1.1 research backlog.
 - [BRANCHING.md](BRANCHING.md) — branch freeze, versioning, and release policy.
 - [INTELLECTUAL_PROPERTY.md](INTELLECTUAL_PROPERTY.md) — copyright, ownership, trademarks, third-party licences.
 - [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTORS.md](CONTRIBUTORS.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md).

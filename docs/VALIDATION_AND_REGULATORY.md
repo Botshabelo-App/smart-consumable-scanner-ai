@@ -1,6 +1,6 @@
 # Validation Methodology and Regulatory Documentation
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. This document will be updated with final dataset size, model version, and validation metrics before any v1.0.0 release.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. This document will be updated with final dataset size, model version, and validation metrics before any v1.0.0 release.
 
 This document supports future discussions with regulators, customers, and auditors by describing the AI validation approach, datasets, limitations, and risk controls.
 

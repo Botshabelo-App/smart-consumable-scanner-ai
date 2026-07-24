@@ -2,7 +2,7 @@
 
 **Scope:** Smart Consumable Scanner AI — backend, mobile app, infrastructure, and dependency surface.  
 **Date:** 2026-07-24  
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Remediations completed or documented as accepted risk for pilot.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Remediations completed or documented as accepted risk for pilot.
 
 ## 1. Executive Summary
 

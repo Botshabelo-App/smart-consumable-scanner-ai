@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Use this checklist before deploying to a pilot environment; complete the final `RELEASE_CHECKLIST.md` before tagging `v1.0.0`.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Use this checklist before deploying to a pilot environment; complete the final `RELEASE_CHECKLIST.md` before tagging `v1.0.0`.
 
 ## Infrastructure
 

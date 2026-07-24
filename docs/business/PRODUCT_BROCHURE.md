@@ -1,6 +1,6 @@
 # Smart Consumable Scanner AI — Product Brochure
 
-**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+**Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
 
 ## Inspect smarter, not harder
 
