@@ -119,6 +119,13 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 See [docs/API.md](docs/API.md).
 
+## Release readiness, deployment, pilot, and roadmap
+
+- [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md) — test results, model metrics, benchmarks, limitations, and v1.0.0 roadmap.
+- [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md) — step-by-step production deployment checklist.
+- [docs/PILOT_PLAN.md](docs/PILOT_PLAN.md) — recommended phased pilot plan.
+- [docs/V1_ROADMAP.md](docs/V1_ROADMAP.md) — detailed roadmap to Version 1.0.0.
+
 ## License
 
 Proprietary — all rights reserved.

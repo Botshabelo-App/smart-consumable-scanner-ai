@@ -1,0 +1,83 @@
+{
+  "summary": {
+    "total_images": 2,
+    "accuracy": 1.0,
+    "device": "cpu"
+  },
+  "per_class_metrics": {
+    "fresh": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    },
+    "near_expiry": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    "suspicious": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 0
+    },
+    "expired": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "support": 1
+    }
+  },
+  "confusion_matrix": {
+    "fresh": {
+      "fresh": 1,
+      "near_expiry": 0,
+      "suspicious": 0,
+      "expired": 0
+    },
+    "near_expiry": {
+      "fresh": 0,
+      "near_expiry": 0,
+      "suspicious": 0,
+      "expired": 0
+    },
+    "suspicious": {
+      "fresh": 0,
+      "near_expiry": 0,
+      "suspicious": 0,
+      "expired": 0
+    },
+    "expired": {
+      "fresh": 0,
+      "near_expiry": 0,
+      "suspicious": 0,
+      "expired": 1
+    }
+  },
+  "latency_ms": {
+    "count": 2,
+    "mean_ms": 1012.41,
+    "min_ms": 243.41,
+    "max_ms": 1781.42,
+    "p50_ms": 1781.42,
+    "p95_ms": 1781.42
+  },
+  "predictions": [
+    {
+      "image": "/tmp/apple.png",
+      "true": "fresh",
+      "predicted": "fresh",
+      "confidence": 1.0,
+      "category": "produce"
+    },
+    {
+      "image": "/tmp/rotten_apple.png",
+      "true": "expired",
+      "predicted": "expired",
+      "confidence": 1.0,
+      "category": "produce"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "device": "cpu",
+  "model_load_time_sec": 0.4,
+  "total_trainable_parameters": 9515429,
+  "checkpoint_size_mb": 4.23,
+  "yolo_size_mb": 6.23,
+  "runs": 20,
+  "image": "/tmp/apple.png",
+  "mean_ms": 327.7,
+  "min_ms": 201.03,
+  "max_ms": 1848.6,
+  "p50_ms": 244.75,
+  "p95_ms": 1848.6,
+  "throughput_rps": 3.05,
+  "sample_result": {
+    "condition": "fresh",
+    "confidence": 1.0,
+    "category": "produce",
+    "findings": [
+      "Detection: apple (conf 0.93)",
+      "Product classification: apple (produce) (conf 0.70)",
+      "Mean HSV: hue=88.5, saturation=131.9, value=216.1",
+      "Spoilage model P(spoiled)=0.000"
+    ]
+  }
+}
