@@ -1,0 +1,60 @@
+{
+  "config": {
+    "backbone": "convnext_tiny",
+    "epochs": 2,
+    "folds": 2,
+    "batch_size": 8,
+    "lr": 0.0001,
+    "patience": 5,
+    "weight_decay": 0.0001,
+    "seed": 42
+  },
+  "device": "cpu",
+  "num_classes": 2,
+  "num_samples": 100,
+  "folds": [
+    {
+      "fold": 1,
+      "best_val_loss": 0.017143694085202048,
+      "val_acc": 1.0,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.42457677849701475,
+          "val_loss": 0.10436389914580754,
+          "val_acc": 1.0
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.032141072276447503,
+          "val_loss": 0.017143694085202048,
+          "val_acc": 1.0
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "best_val_loss": 0.003941381283636604,
+      "val_acc": 1.0,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.2682372597711427,
+          "val_loss": 0.10147292033902236,
+          "val_acc": 1.0
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.026916996343061328,
+          "val_loss": 0.003941381283636604,
+          "val_acc": 1.0
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "mean_val_acc": 1.0,
+    "std_val_acc": 0.0,
+    "mean_best_val_loss": 0.0105
+  }
+}

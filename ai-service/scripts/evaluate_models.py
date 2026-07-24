@@ -24,7 +24,7 @@ from PIL import Image
 def load_pipeline():
     import sys
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from ai_service.app.models.real_classifier import RealProductPipeline
 
     pipeline = RealProductPipeline()

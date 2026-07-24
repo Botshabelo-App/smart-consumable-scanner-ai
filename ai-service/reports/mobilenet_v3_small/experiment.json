@@ -1,0 +1,60 @@
+{
+  "config": {
+    "backbone": "mobilenet_v3_small",
+    "epochs": 2,
+    "folds": 2,
+    "batch_size": 8,
+    "lr": 0.0001,
+    "patience": 5,
+    "weight_decay": 0.0001,
+    "seed": 42
+  },
+  "device": "cpu",
+  "num_classes": 2,
+  "num_samples": 100,
+  "folds": [
+    {
+      "fold": 1,
+      "best_val_loss": 0.5419200743947711,
+      "val_acc": 0.94,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.7289630685533796,
+          "val_loss": 0.6798007403101239,
+          "val_acc": 0.5
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.4696307522909982,
+          "val_loss": 0.5419200743947711,
+          "val_acc": 0.94
+        }
+      ]
+    },
+    {
+      "fold": 2,
+      "best_val_loss": 0.4600180004324232,
+      "val_acc": 0.96,
+      "history": [
+        {
+          "epoch": 1,
+          "train_loss": 0.5552259002413068,
+          "val_loss": 0.5944834096091134,
+          "val_acc": 0.74
+        },
+        {
+          "epoch": 2,
+          "train_loss": 0.4082528352737427,
+          "val_loss": 0.4600180004324232,
+          "val_acc": 0.96
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "mean_val_acc": 0.95,
+    "std_val_acc": 0.01,
+    "mean_best_val_loss": 0.501
+  }
+}

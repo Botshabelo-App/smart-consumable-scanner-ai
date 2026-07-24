@@ -1,0 +1,15 @@
+{
+  "image": "/tmp/apple.png",
+  "checkpoint": "reports/mobilenet_v3_small/model.pth",
+  "backbone": "mobilenet_v3_small",
+  "predictions": [
+    {
+      "class": "produce_fresh",
+      "probability": 0.6445
+    },
+    {
+      "class": "produce_suspicious",
+      "probability": 0.3555
+    }
+  ]
+}

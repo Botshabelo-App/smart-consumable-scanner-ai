@@ -123,8 +123,10 @@ See [docs/API.md](docs/API.md).
 
 - [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md) — test results, model metrics, benchmarks, limitations, and v1.0.0 roadmap.
 - [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md) — step-by-step production deployment checklist.
-- [docs/PILOT_PLAN.md](docs/PILOT_PLAN.md) — recommended phased pilot plan.
+- [docs/PILOT_PLAN.md](docs/PILOT_PLAN.md) — recommended phased pilot plan and pilot-readiness checklist.
 - [docs/V1_ROADMAP.md](docs/V1_ROADMAP.md) — detailed roadmap to Version 1.0.0.
+- [docs/VALIDATION_AND_REGULATORY.md](docs/VALIDATION_AND_REGULATORY.md) — validation methodology, dataset description, limitations, and risk assessment.
+- [docs/DEVICE_TESTING.md](docs/DEVICE_TESTING.md) — real device testing protocol and `PerformanceProfiler` usage.
 
 ## License
 

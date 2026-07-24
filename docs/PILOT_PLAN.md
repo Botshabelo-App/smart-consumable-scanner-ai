@@ -57,3 +57,37 @@ This plan moves Smart Consumable Scanner AI from validated MVP to production-rea
 | Inspector NPS | ≥ 40 | Weekly survey |
 
 If all criteria are met, proceed to full production release 1.0.0.
+
+## Pilot Readiness Checklist
+
+Before inviting external pilot users:
+
+- [ ] `download_datasets.py` has been run and the local `data/raw` folder contains representative categories and conditions.
+- [ ] `quality.py` has been executed and all corrupted, duplicate, and blurred images have been reviewed.
+- [ ] `benchmark_backbones.py` has selected the best architecture for the target devices.
+- [ ] `train.py` has produced a frozen checkpoint with per-class F1 meeting the go/no-go criteria.
+- [ ] `evaluate_models.py` reports the same metrics on a held-out test set as `train.py` reports on validation.
+- [ ] `explain.py` generates Grad-CAM overlays and top-k explanations for at least one image per class.
+- [ ] `calibrate` produces a reliability diagram with ECE < 0.1.
+- [ ] Mobile `PerformanceProfiler` has been tested on at least one low-end, one mid-range, and one flagship device.
+- [ ] `docs/VALIDATION_AND_REGULATORY.md` has been updated with the final dataset size, model version, and risk assessment.
+- [ ] Pilot user agreements, data-consent forms, and incident-response contacts are in place.
+- [ ] A weekly feedback and review cadence is scheduled.
+
+## Pilot Feedback Workflow
+
+1. Inspector scans product and records AI result.
+2. Inspector can flag `Disagree` and add a note/image through the review workflow.
+3. Authorised reviewer inspects the flagged case and assigns a corrected label.
+4. Approved corrections are exported with `ai-service/scripts/build_feedback_dataset.py`.
+5. Quarterly offline retraining run creates a new model candidate.
+6. Model candidate is validated on a held-out test set before replacing the production checkpoint.
+
+## Release Candidate Gate
+
+Only after the pilot data has been collected, the model retrained and validated, and the device matrix tested should the project be tagged:
+
+- `v1.0.0-rc1` — first pilot release candidate.
+- `v1.0.0-rc2` — second release candidate after pilot fixes.
+- `v1.0.0` — final production release.
+

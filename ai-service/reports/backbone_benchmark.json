@@ -1,0 +1,40 @@
+{
+  "backbones": [
+    {
+      "backbone": "convnext_tiny",
+      "mean_val_acc": 1.0,
+      "std_val_acc": 0.0,
+      "mean_val_loss": 0.0105,
+      "num_samples": 100,
+      "num_classes": 2,
+      "experiment_dir": "../reports/convnext_tiny"
+    },
+    {
+      "backbone": "efficientnet_b0",
+      "mean_val_acc": 0.97,
+      "std_val_acc": 0.01,
+      "mean_val_loss": 0.3562,
+      "num_samples": 100,
+      "num_classes": 2,
+      "experiment_dir": "../reports/efficientnet_b0"
+    },
+    {
+      "backbone": "mobilenet_v3_small",
+      "mean_val_acc": 0.95,
+      "std_val_acc": 0.01,
+      "mean_val_loss": 0.501,
+      "num_samples": 100,
+      "num_classes": 2,
+      "experiment_dir": "../reports/mobilenet_v3_small"
+    }
+  ],
+  "best": {
+    "backbone": "convnext_tiny",
+    "mean_val_acc": 1.0,
+    "std_val_acc": 0.0,
+    "mean_val_loss": 0.0105,
+    "num_samples": 100,
+    "num_classes": 2,
+    "experiment_dir": "../reports/convnext_tiny"
+  }
+}
