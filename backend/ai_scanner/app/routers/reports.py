@@ -8,6 +8,7 @@ from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Report, Scan, User
 from ai_scanner.app.dependencies import require_user
 from ai_scanner.app.schemas import ReportCreate, ReportRead
+from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.report_service import generate_csv, generate_excel, generate_pdf
 
 router = APIRouter()
@@ -50,6 +51,13 @@ def create_report(
     db.commit()
     db.refresh(report)
 
+    log_event(
+        action="report_generated",
+        user_id=user.id,
+        resource_type="report",
+        resource_id=str(report.id),
+        details=f"format={format}, report_id={report.report_id}",
+    )
     return report
 
 

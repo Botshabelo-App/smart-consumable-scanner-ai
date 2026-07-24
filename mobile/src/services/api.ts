@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance } from 'axios';
 
 import { DashboardStats, Report, ScanResult } from '../types';
+import { getToken, saveToken, deleteToken } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 declare const __DEV__: boolean;
 
-// TODO: update this for your local network / backend deployment
 const API_BASE_URL = __DEV__ ? 'http://10.0.2.2:8000' : 'https://api.smartscanner.example.com';
 
 const api: AxiosInstance = axios.create({
@@ -14,16 +14,18 @@ const api: AxiosInstance = axios.create({
 });
 
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('token');
+  const token = await getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+const OFFLINE_QUEUE_KEY = 'offline_scan_queue';
+
 export async function login(email: string, password: string): Promise<string> {
   const { data } = await api.post('/auth/login', { email, password });
-  await AsyncStorage.setItem('token', data.access_token);
+  await saveToken(data.access_token);
   return data.access_token;
 }
 
@@ -37,7 +39,25 @@ export async function register(payload: {
   await api.post('/auth/register', payload);
 }
 
+export async function logout(): Promise<void> {
+  await deleteToken();
+}
+
 export async function analyzeImage(
+  uri: string,
+  productName?: string,
+  location?: { latitude: number; longitude: number }
+): Promise<ScanResult> {
+  try {
+    return await uploadScan(uri, productName, location);
+  } catch (e) {
+    // Network failure: queue for later sync if offline mode is needed
+    await queueOfflineScan({ uri, productName, location });
+    throw e;
+  }
+}
+
+async function uploadScan(
   uri: string,
   productName?: string,
   location?: { latitude: number; longitude: number }
@@ -70,9 +90,34 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return data;
 }
 
-export async function generateReport(scanId: string, format: 'pdf' | 'csv' | 'excel' = 'pdf', notes?: string): Promise<Report> {
+export async function generateReport(
+  scanId: string,
+  format: 'pdf' | 'csv' | 'excel' = 'pdf',
+  notes?: string
+): Promise<Report> {
   const { data } = await api.post(`/reports/?format=${format}`, { scan_id: scanId, notes });
   return data;
+}
+
+interface QueuedScan {
+  uri: string;
+  productName?: string;
+  location?: { latitude: number; longitude: number };
+  createdAt: string;
+}
+
+async function queueOfflineScan(scan: Omit<QueuedScan, 'createdAt'>) {
+  const existing = JSON.parse((await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)) || '[]');
+  existing.push({ ...scan, createdAt: new Date().toISOString() });
+  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(existing));
+}
+
+export async function getOfflineScans(): Promise<QueuedScan[]> {
+  return JSON.parse((await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)) || '[]');
+}
+
+export async function clearOfflineScans(): Promise<void> {
+  await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
 }
 
 export default api;

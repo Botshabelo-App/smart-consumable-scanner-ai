@@ -11,15 +11,26 @@ A production-ready, cross-platform mobile application for detecting expired, spo
 - Role-based access for inspectors, managers, administrators, and consumers.
 - Scalable architecture for future sensors (Bluetooth, NIR, thermal, barcode, RFID, NFC, IoT).
 
+## What's implemented
+
+- **Real computer-vision pipeline** in `ai-service/`: YOLOv8 object detection, EfficientNet-B0 product classification, MobileNetV3-Small fresh/spoiled spoilage classifier, and OpenCV-based packaging/bruise analysis.
+- **Explainable AI**: every scan returns `findings` with concrete reasons (model scores, color/texture stats, packaging contour analysis).
+- **Dataset and training scaffold** in `ai-service/datasets/` to prepare public datasets and fine-tune EfficientNet/MobileNet classifiers.
+- **Mobile scanner**: live camera preview, continuous capture, multiple scan angles, image quality validation, and detailed result display.
+- **Inspector dashboard**: inspection counts, breakdown bar chart, confidence trend line chart, GPS map of inspections.
+- **Security**: JWT auth, role-based endpoints, encrypted token storage with `expo-secure-store`, audit logs, and offline scan queue.
+- **Production deployment**: Kubernetes manifests, Nginx reverse-proxy config, and EAS production build config.
+
 ## Repository Structure
 
 ```text
 .
-├── backend           FastAPI API server, auth, database, reports
-├── ai-service        Python AI inference service (TensorFlow/PyTorch)
+├── backend           FastAPI API server, auth, database, reports, audit logs
+├── ai-service        Python AI inference service (PyTorch / torchvision / YOLO)
 ├── mobile            React Native (Expo) mobile application
-├── shared            Shared schemas/types used by backend and mobile
-├── docs              Architecture, API, and deployment guides
+├── docs              Architecture, API, deployment, limitations/roadmap
+├── k8s               Kubernetes manifests
+├── nginx             Nginx reverse-proxy configuration
 └── docker-compose.yml
 ```
 
@@ -44,6 +55,36 @@ npx expo start
 ```
 
 Use the Expo Go app on Android/iOS, or run `i` / `a` in the terminal.
+
+## Training your own models
+
+```bash
+cd ai-service/datasets
+python prepare_hf.py --dataset Project-AgML/fresh_rotten_fruit_classification --output ../data
+python train.py --data-dir ../data/raw --output-dir ../checkpoints
+```
+
+## Production build
+
+### Mobile
+
+```bash
+cd mobile
+npx eas build --platform android --profile production
+npx eas build --platform ios --profile production
+```
+
+### Kubernetes
+
+```bash
+kubectl apply -f k8s/
+```
+
+Update `k8s/backend.yaml` and `k8s/postgres.yaml` with strong secrets before deploying.
+
+## Limitations and sensor roadmap
+
+See [docs/LIMITATIONS_AND_ROADMAP.md](docs/LIMITATIONS_AND_ROADMAP.md) for what the smartphone camera can realistically detect and how NIR, hyperspectral, thermal, Bluetooth, RFID, NFC, and IoT sensors can be integrated in future releases.
 
 ## Architecture
 

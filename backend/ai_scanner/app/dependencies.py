@@ -58,3 +58,11 @@ def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     return user
+
+
+def require_role(*allowed: str):
+    def checker(user: User = Depends(require_user)) -> User:
+        if user.role.value not in allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        return user
+    return checker

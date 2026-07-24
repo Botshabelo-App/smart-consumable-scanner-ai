@@ -43,6 +43,8 @@ Analyze an uploaded product image.
 
 Requires `Authorization: Bearer <token>`.
 
+Returns a `ScanResult` including `condition`, `confidence`, `product_name`, `category`, `packaging_type`, `findings`, `expiry_risk`, `image_path`, and `created_at`.
+
 ### GET /scans/
 
 List recent scans.
@@ -80,3 +82,9 @@ Get report metadata.
 ### GET /dashboard/stats
 
 Return aggregate inspection statistics.
+
+## Admin
+
+### GET /admin/audit-logs/
+
+List authentication and scan audit events. Restricted to users with the `administrator` role.

@@ -30,6 +30,9 @@ export interface ScanResult {
   category?: ProductCategory;
   condition: Condition;
   confidence: number;
+  packaging_type?: string;
+  findings?: string[];
+  expiry_risk?: string;
   image_path?: string;
   inspector_name?: string;
   latitude?: number;

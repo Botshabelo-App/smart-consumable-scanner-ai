@@ -67,3 +67,18 @@ class Report(Base):
     @property
     def inspector_name(self) -> str | None:
         return self.scan.inspector_name if self.scan else None
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)
+    resource_type = Column(String, nullable=True)
+    resource_id = Column(String, nullable=True)
+    details = Column(Text, nullable=True)
+    ip_address = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    user = relationship("User")

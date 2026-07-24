@@ -1,13 +1,16 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Button,
+  FlatList,
   Image,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -16,20 +19,23 @@ import {
 import { Condition, ScanResult } from '../types';
 import { analyzeImage } from '../services/api';
 
-const conditionEmoji: Record<Condition, string> = {
-  fresh: '🟢',
-  near_expiry: '🟡',
-  suspicious: '🟠',
-  expired: '🔴',
+const conditionColor: Record<Condition, string> = {
+  fresh: '#2e7d32',
+  near_expiry: '#f9a825',
+  suspicious: '#ef6c00',
+  expired: '#c62828',
 };
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [photo, setPhoto] = useState<string | null>(null);
+  const [captures, setCaptures] = useState<string[]>([]);
   const [productName, setProductName] = useState('');
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [continuous, setContinuous] = useState(false);
+  const [qualityNote, setQualityNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -37,18 +43,56 @@ export default function ScanScreen() {
     }
   }, [permission]);
 
-  const takePicture = async () => {
-    if (!cameraRef.current) return;
-    const picture = await cameraRef.current.takePictureAsync();
-    if (picture?.uri) {
-      setPhoto(picture.uri);
-      setResult(null);
+  // Continuous scanning: capture every 3 seconds when enabled and not loading
+  useEffect(() => {
+    if (!continuous || loading) return;
+    const interval = setInterval(() => {
+      takePicture();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [continuous, loading, photo]);
+
+  const validateImageQuality = async (uri: string): Promise<boolean> => {
+    try {
+      const info = await FileSystem.getInfoAsync(uri);
+      if (!info.exists || info.size < 1024) {
+        setQualityNote('Image too small or not saved.');
+        return false;
+      }
+      const mb = info.size / (1024 * 1024);
+      if (mb > 10) {
+        setQualityNote('Image is large; it may upload slowly.');
+      } else {
+        setQualityNote(null);
+      }
+      return true;
+    } catch (e) {
+      setQualityNote('Could not verify image quality.');
+      return false;
     }
   };
 
-  const analyze = async () => {
-    if (!photo) return;
+  const takePicture = async () => {
+    if (!cameraRef.current) return;
+    try {
+      const picture = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (picture?.uri) {
+        setPhoto(picture.uri);
+        setCaptures((prev) => [picture.uri, ...prev].slice(0, 5));
+        setResult(null);
+      }
+    } catch (e: any) {
+      Alert.alert('Capture error', e.message);
+    }
+  };
+
+  const analyze = async (uri: string = photo || '') => {
+    if (!uri) return;
+    const ok = await validateImageQuality(uri);
+    if (!ok) return;
+
     setLoading(true);
+    setResult(null);
     try {
       let location;
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -59,13 +103,20 @@ export default function ScanScreen() {
           longitude: pos.coords.longitude,
         };
       }
-      const data = await analyzeImage(photo, productName, location);
+      const data = await analyzeImage(uri, productName, location);
       setResult(data);
     } catch (e: any) {
       Alert.alert('Analysis error', e?.response?.data?.detail || e.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const reset = () => {
+    setPhoto(null);
+    setCaptures([]);
+    setResult(null);
+    setQualityNote(null);
   };
 
   if (!permission?.granted) {
@@ -83,25 +134,59 @@ export default function ScanScreen() {
       <CameraView ref={cameraRef} style={styles.camera} facing="back" />
       <View style={styles.row}>
         <Button title="Capture" onPress={takePicture} />
+        <View style={styles.continuousRow}>
+          <Text>Continuous</Text>
+          <Switch value={continuous} onValueChange={setContinuous} />
+        </View>
       </View>
       {photo && <Image source={{ uri: photo }} style={styles.preview} />}
+      {captures.length > 1 && (
+        <View style={styles.angles}>
+          <Text style={styles.subheading}>Scan angles</Text>
+          <FlatList
+            horizontal
+            data={captures}
+            keyExtractor={(item, idx) => `${item}-${idx}`}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item }} style={styles.thumb} />
+            )}
+          />
+        </View>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Product name (optional)"
         value={productName}
         onChangeText={setProductName}
       />
+      {qualityNote && <Text style={styles.qualityNote}>{qualityNote}</Text>}
       {photo && (
-        <Button title={loading ? 'Analyzing...' : 'Analyze with AI'} onPress={analyze} disabled={loading} />
+        <View style={styles.row}>
+          <Button title={loading ? 'Analyzing...' : 'Analyze with AI'} onPress={() => analyze(photo)} disabled={loading} />
+          <View style={{ width: 8 }} />
+          <Button title="Reset" onPress={reset} />
+        </View>
       )}
       {loading && <ActivityIndicator style={{ marginTop: 12 }} />}
       {result && (
-        <View style={styles.result}>
-          <Text style={styles.resultTitle}>{conditionEmoji[result.condition]} {result.condition.toUpperCase()}</Text>
-          <Text>Product: {result.product_name || 'Unknown'}</Text>
-          <Text>Category: {result.category || 'Unknown'}</Text>
-          <Text>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
-          <Text>Date: {new Date(result.created_at).toLocaleString()}</Text>
+        <View style={[styles.result, { borderColor: conditionColor[result.condition], borderWidth: 2 }]}>
+          <Text style={[styles.resultTitle, { color: conditionColor[result.condition] }]}>
+            {result.condition.toUpperCase()}
+          </Text>
+          <Text style={styles.detail}>Product: {result.product_name || 'Unknown'}</Text>
+          <Text style={styles.detail}>Category: {result.category || 'Unknown'}</Text>
+          <Text style={styles.detail}>Packaging: {result.packaging_type || 'Unknown'}</Text>
+          <Text style={styles.detail}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
+          <Text style={styles.subheading}>Why the AI decided this:</Text>
+          {(result.findings || []).map((finding, idx) => (
+            <Text key={idx} style={styles.finding}>
+              • {finding}
+            </Text>
+          ))}
+          {result.expiry_risk && (
+            <Text style={styles.detail}>Expiry risk: {result.expiry_risk}</Text>
+          )}
+          <Text style={styles.detail}>Date: {new Date(result.created_at).toLocaleString()}</Text>
         </View>
       )}
     </ScrollView>
@@ -119,19 +204,42 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     textAlign: 'center',
   },
+  subheading: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 4,
+  },
   camera: {
     width: '100%',
     aspectRatio: 3 / 4,
     borderRadius: 12,
   },
   row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginVertical: 12,
+  },
+  continuousRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 16,
   },
   preview: {
     width: '100%',
     aspectRatio: 3 / 4,
     borderRadius: 12,
     marginVertical: 12,
+  },
+  angles: {
+    marginVertical: 8,
+  },
+  thumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 8,
   },
   input: {
     borderWidth: 1,
@@ -140,6 +248,11 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
+  qualityNote: {
+    color: '#ef6c00',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   result: {
     marginTop: 16,
     padding: 16,
@@ -147,9 +260,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   resultTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 8,
+  },
+  detail: {
+    fontSize: 15,
+    marginBottom: 4,
+  },
+  finding: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 2,
   },
   centered: {
     flex: 1,

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from ai_scanner.app.routers import auth, dashboard, reports, scans
+from ai_scanner.app.routers import audit, auth, dashboard, reports, scans
 from ai_scanner.config import settings
 
 
@@ -33,6 +33,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(scans.router, prefix="/scans", tags=["scans"])
 app.include_router(reports.router, prefix="/reports", tags=["reports"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(audit.router, prefix="/admin", tags=["admin"])
 
 
 @app.get("/health", tags=["health"])

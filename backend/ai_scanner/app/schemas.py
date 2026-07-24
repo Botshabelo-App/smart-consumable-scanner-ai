@@ -3,7 +3,7 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserRole(str, Enum):
@@ -91,11 +91,21 @@ class ScanRead(BaseModel):
     category: Optional[ProductCategory] = None
     condition: Condition
     confidence: float
+    packaging_type: Optional[str] = None
+    findings: List[str] = []
+    expiry_risk: Optional[str] = None
     image_path: Optional[str] = None
     inspector_name: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     created_at: datetime
+
+    @field_validator("findings", mode="before")
+    @classmethod
+    def _split_findings(cls, v):
+        if isinstance(v, str):
+            return [line for line in v.split("\n") if line]
+        return v or []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -126,3 +136,16 @@ class DashboardStats(BaseModel):
     suspicious: int
     reports_generated: int
     average_confidence: float
+
+
+class AuditLogRead(BaseModel):
+    id: UUID
+    user_id: Optional[UUID] = None
+    action: str
+    resource_type: Optional[str] = None
+    resource_id: Optional[str] = None
+    details: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

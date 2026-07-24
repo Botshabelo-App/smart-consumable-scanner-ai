@@ -10,7 +10,8 @@ from ai_service.schemas import ScanResult
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Future: load TensorFlow / PyTorch models here
+    if hasattr(classifier, "warm_up"):
+        classifier.warm_up()
     yield
 
 

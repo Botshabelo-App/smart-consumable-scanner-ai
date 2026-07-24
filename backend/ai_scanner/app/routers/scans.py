@@ -11,6 +11,7 @@ from ai_scanner.app.db.models import Scan, User
 from ai_scanner.app.dependencies import get_current_user, require_user
 from ai_scanner.app.schemas import ScanCreate, ScanRead, ScanResult
 from ai_scanner.app.services.ai_client import ai_client
+from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.report_service import save_upload
 
 router = APIRouter()
@@ -60,6 +61,13 @@ async def analyze_image(
     db.commit()
     db.refresh(scan)
 
+    log_event(
+        action="scan_created",
+        user_id=user.id,
+        resource_type="scan",
+        resource_id=str(scan.id),
+        details=f"condition={scan.condition.value}, confidence={scan.confidence}",
+    )
     return scan
 
 
