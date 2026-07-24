@@ -1,5 +1,7 @@
 # Real Device Testing Guide
 
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+
 This document describes how to validate the Smart Consumable Scanner AI mobile app on real Android and iOS devices.
 
 ## Goals
@@ -48,7 +50,7 @@ Test on at least the following device classes:
 
 ## Metrics to record per device
 
-| Metric | How to measure | Target (v1.0.0 RC) |
+| Metric | How to measure | Target (RC1) |
 |--------|----------------|--------------------|
 | Scan latency | `performanceProfiler` | ≤ 2 s on Wi-Fi, ≤ 4 s on 4G |
 | Camera preview FPS | `frameCount / durationMs * 1000` | ≥ 15 FPS on mid-range |

@@ -1,8 +1,8 @@
-"""Generate a weekly pilot summary from the local database.
+"""Generate a weekly pilot monitoring report.
 
 Usage:
     cd backend
-    python scripts/pilot_summary.py [--output reports/pilot_summary_YYYY-MM-DD.md]
+    python scripts/pilot_weekly_report.py [--output reports/pilot_weekly_YYYY-MM-DD.md]
 """
 import argparse
 from datetime import datetime, timezone
@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=Path(f"reports/pilot_summary_{datetime.now(timezone.utc).date().isoformat()}.md"))
+    parser.add_argument("--output", type=Path, default=Path(f"reports/pilot_weekly_{datetime.now(timezone.utc).date().isoformat()}.md"))
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -27,7 +27,7 @@ def main():
     try:
         report = build_weekly_report(db)
         args.output.write_text(report)
-        print(f"Summary written to {args.output}")
+        print(f"Weekly report written to {args.output}")
     finally:
         db.close()
 

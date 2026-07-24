@@ -2,7 +2,7 @@
 
 **Scope:** Smart Consumable Scanner AI — backend, mobile app, infrastructure, and dependency surface.  
 **Date:** 2026-07-24  
-**Status:** Release Candidate 1 (RC1) — remediations in progress, documented risk accepted for pilot.
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Remediations completed or documented as accepted risk for pilot.
 
 ## 1. Executive Summary
 
@@ -36,11 +36,14 @@ The RC1 security posture is appropriate for controlled pilot deployments when th
 
 ### Python (`pip-audit`)
 
-Key transitive issues resolved by switching to `PyJWT` and upgrading `fastapi`/`pillow`:
+The current `pip-audit` scan (after dependency upgrades) reports no vulnerabilities in installed production packages.
 
-- `ecdsa` — Minerva timing side-channel (PYSEC-2026-1325). Mitigated by removing `python-jose`.
-- `starlette` — Host/path URL reconstruction and form parser DoS (PYSEC-2026-161, 248, 249, 1943, 2280, 2281). Mitigated by upgrading.
-- `pillow` — Integer overflow and GZIP decompression bomb (PYSEC-2026-165, 2250). Mitigated by upgrading to 12.2.0.
+Resolved by:
+
+- Removing `python-jose` (and its transitive `ecdsa` dependency) and switching to `PyJWT==2.13.0`.
+- Upgrading `fastapi` to `0.139.2`, `starlette` to `1.3.1`, and `python-multipart` to `0.0.32`.
+- Upgrading `pillow` to `12.3.0`.
+- Upgrading `pytest` and `setuptools` to non-vulnerable versions.
 
 Re-run `pip-audit` after the next dependency update to verify.
 

@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-Use this checklist before deploying Smart Consumable Scanner AI to a live environment.
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Use this checklist before deploying to a pilot environment; complete the final `RELEASE_CHECKLIST.md` before tagging `v1.0.0`.
 
 ## Infrastructure
 

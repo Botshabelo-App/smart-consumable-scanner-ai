@@ -136,6 +136,12 @@ See [docs/API.md](docs/API.md).
 - [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) — RC1 security audit findings and remediations.
 - [docs/OPERATIONS_GUIDE.md](docs/OPERATIONS_GUIDE.md) — user, inspector, admin, deployment, DR, and AI model management guides.
 - [docs/PILOT_METRICS.md](docs/PILOT_METRICS.md) — measurable pilot success criteria and go/no-go gates.
+- [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) — final sign-off checklist for Version 1.0.0.
+- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) — current RC1 Maintenance Mode status and release path.
+- [docs/AI_GOVERNANCE.md](docs/AI_GOVERNANCE.md) — model cards, validation, promotion, and retirement policy.
+- [docs/DATASET_STRATEGY.md](docs/DATASET_STRATEGY.md) — long-term dataset collection, annotation, and retraining policy.
+- [docs/MAINTENANCE.md](docs/MAINTENANCE.md) — Maintenance Mode rules, allowed changes, and weekly/monthly tasks.
+- [CHANGELOG.md](CHANGELOG.md), [CONTRIBUTORS.md](CONTRIBUTORS.md), [LESSONS_LEARNED.md](LESSONS_LEARNED.md).
 
 ## License
 

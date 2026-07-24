@@ -1,5 +1,7 @@
 # Architecture
 
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+
 ## Overview
 
 Smart Consumable Scanner AI is composed of three primary deployable units:

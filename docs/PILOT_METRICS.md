@@ -1,5 +1,7 @@
 # Pilot Success Metrics
 
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+
 These metrics determine whether the RC1 pilot is successful and the project can proceed to RC2 and Version 1.0.0.
 
 ## 1. Operational metrics

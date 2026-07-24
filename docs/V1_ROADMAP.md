@@ -1,8 +1,10 @@
 # Roadmap to Version 1.0.0 Production Release
 
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode.
+
 This roadmap turns the Phase 3 enterprise MVP into a production-grade release.
 
-## Current state (end of Phase 6)
+## Current state (end of Phase 6 / RC1 stabilization)
 
 - Real AI inference pipeline (YOLOv8, EfficientNet-B0, MobileNetV3, OpenCV).
 - Backend with auth, RBAC, multi-organization, reports, analytics, reviews, audit logs, model registry, monitoring, and pilot profiles.

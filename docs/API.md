@@ -1,5 +1,7 @@
 # API Reference
 
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Base URLs and endpoints are stable for RC1.
+
 Base URL: `http://localhost:8000`
 
 ## Auth

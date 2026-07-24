@@ -52,8 +52,9 @@ checkpoints/
 *.onnx
 *.tflite
 
-# Generated datasets, experiments, and logs
+# Generated datasets, experiments, reports, and logs
 ai-service/data/
 ai-service/experiments/
 mobile/device_logs/
 /reports/
+backend/reports/

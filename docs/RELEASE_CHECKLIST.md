@@ -47,11 +47,13 @@ This checklist must be completed and signed off before tagging `v1.0.0`.
 
 ## 5. Documentation review
 
-- [ ] `README.md` reflects current RC1 status and points to all relevant docs.
+- [ ] `README.md` reflects current RC1 Maintenance Mode status and points to all relevant docs.
+- [ ] `docs/PROJECT_STATUS.md` and `MAINTENANCE.md` are consistent with `README.md`.
 - [ ] `docs/OPERATIONS_GUIDE.md` reviewed by at least one pilot administrator.
 - [ ] `docs/SECURITY_AUDIT.md` remediations completed or accepted with sign-off.
 - [ ] `docs/PILOT_METRICS.md` targets understood by pilot team.
 - [ ] `docs/VALIDATION_AND_REGULATORY.md` updated with final dataset and model details.
+- [ ] `docs/AI_GOVERNANCE.md` and `docs/DATASET_STRATEGY.md` reviewed and approved.
 - [ ] `docs/LIMITATIONS_AND_ROADMAP.md` clearly states camera-only limitations.
 
 ## 6. Accessibility review
@@ -83,6 +85,7 @@ This checklist must be completed and signed off before tagging `v1.0.0`.
 - [ ] Health checks (`/health`) pass for all services.
 - [ ] Log aggregation and alerting configured.
 - [ ] EAS production build succeeded for Android (and iOS if applicable).
+- [ ] Build environment uses Node.js version supported by Expo SDK 57 / React Native 0.86 (>=20.19.4).
 
 ## 10. Pilot sign-off
 

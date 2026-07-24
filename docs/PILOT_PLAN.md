@@ -1,6 +1,6 @@
 # Recommended Pilot Plan
 
-**Status:** Release Candidate 1 (RC1) — ready for controlled pilot deployments.
+**Status:** Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. No new features unless required by pilot feedback or critical business/regulatory needs.
 
 This plan moves Smart Consumable Scanner AI from validated MVP to production-ready deployment through four low-risk, iterative pilots.
 
@@ -93,7 +93,9 @@ Before inviting external pilot users:
 
 Only after the pilot data has been collected, the model retrained and validated, and the device matrix tested should the project be tagged:
 
-- `v1.0.0-rc1` — first pilot release candidate.
+- `RC1-Stable` — current stable RC1 baseline.
+- `Pilot-1` — snapshot deployed to the first pilot site.
+- `Pilot-2` — snapshot deployed to the second pilot site (when applicable).
 - `v1.0.0-rc2` — second release candidate after pilot fixes.
 - `v1.0.0` — final production release.
 
