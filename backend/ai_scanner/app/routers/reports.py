@@ -1,0 +1,73 @@
+import uuid
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from ai_scanner.app.db.database import get_db
+from ai_scanner.app.db.models import Report, Scan, User
+from ai_scanner.app.dependencies import require_user
+from ai_scanner.app.schemas import ReportCreate, ReportRead
+from ai_scanner.app.services.report_service import generate_csv, generate_excel, generate_pdf
+
+router = APIRouter()
+
+
+def _new_report_id() -> str:
+    return f"RPT-{uuid.uuid4().hex[:12].upper()}"
+
+
+@router.post("/", response_model=ReportRead)
+def create_report(
+    payload: ReportCreate,
+    format: str = Query("pdf", pattern="^(pdf|csv|excel)$"),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    scan = db.query(Scan).filter(Scan.id == payload.scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    report = Report(
+        id=uuid.uuid4(),
+        report_id=_new_report_id(),
+        scan_id=scan.id,
+        notes=payload.notes,
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    inspector_name = user.full_name
+    if format == "pdf":
+        file_path = generate_pdf(scan, report, inspector_name)
+    elif format == "csv":
+        file_path = generate_csv(scan, report)
+    else:
+        file_path = generate_excel(scan, report)
+
+    report.file_url = file_path
+    db.commit()
+    db.refresh(report)
+
+    return report
+
+
+@router.get("/", response_model=List[ReportRead])
+def list_reports(db: Session = Depends(get_db), user: User = Depends(require_user)):
+    return db.query(Report).order_by(Report.generated_at.desc()).all()
+
+
+@router.get("/{report_id}", response_model=ReportRead)
+def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    try:
+        report_uuid = uuid.UUID(report_id)
+    except ValueError:
+        report_uuid = None
+    report = (
+        db.query(Report).filter(Report.id == report_uuid).first()
+        if report_uuid else None
+    ) or db.query(Report).filter(Report.report_id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
