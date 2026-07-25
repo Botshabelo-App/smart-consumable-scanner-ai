@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Consumable Scanner AI",
     "slug": "smart-consumable-scanner-ai",
-    "version": "0.1.0",
+    "version": "0.1.0-RC1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -50,7 +50,9 @@
         {
           "faceIDPermission": "Allow $(PRODUCT_NAME) to access securely stored credentials."
         }
-      ]
+      ],
+      "expo-system-ui",
+      "./plugins/withAndroidCleartextTraffic"
     ]
   }
 }

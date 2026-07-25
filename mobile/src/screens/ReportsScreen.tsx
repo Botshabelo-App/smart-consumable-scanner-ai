@@ -4,7 +4,7 @@
 // Use is subject to the project licence terms.
 
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, FlatList, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { generateReport, getScans } from '../services/api';
 import { ScanResult } from '../types';
@@ -39,11 +39,12 @@ export default function ReportsScreen() {
   if (!scans.length) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Generate Report</Text>
       <FlatList
         data={scans}
         keyExtractor={(item) => item.id}
+        scrollEnabled={false}
         renderItem={({ item }) => (
           <View style={[styles.card, selected === item.id && styles.selected]}>
             <Text>{item.product_name || 'Unknown product'}</Text>
@@ -69,7 +70,7 @@ export default function ReportsScreen() {
         ))}
       </View>
       {loading ? <ActivityIndicator /> : <Button title="Generate Report" onPress={createReport} />}
-    </View>
+    </ScrollView>
   );
 }
 

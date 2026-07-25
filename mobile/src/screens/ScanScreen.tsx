@@ -46,6 +46,7 @@ export default function ScanScreen() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [continuous, setContinuous] = useState(false);
   const [qualityNote, setQualityNote] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const [showOverride, setShowOverride] = useState(false);
   const [overrideCondition, setOverrideCondition] = useState<Condition>('fresh');
   const [overrideReason, setOverrideReason] = useState('');
@@ -217,11 +218,12 @@ export default function ScanScreen() {
         ref={cameraRef}
         style={styles.camera}
         facing="back"
+        onCameraReady={() => setCameraReady(true)}
         barcodeScannerSettings={scanBarcode ? { barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'code128'] } : undefined}
         onBarcodeScanned={scanBarcode ? handleBarcodeScanned : undefined}
       />
       <View style={styles.row}>
-        <Button title="Capture" onPress={takePicture} />
+        <Button title="Capture" onPress={takePicture} disabled={!cameraReady} />
         <View style={styles.continuousRow}>
           <Text>Continuous</Text>
           <Switch value={continuous} onValueChange={setContinuous} />

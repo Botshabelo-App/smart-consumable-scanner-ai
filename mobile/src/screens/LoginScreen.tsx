@@ -3,12 +3,13 @@
 // This file is part of the Smart Consumable Scanner AI project.
 // Use is subject to the project licence terms.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { t } from '../i18n';
 import { useAuth } from '../context/AuthContext';
-import { login, register } from '../services/api';
+import api, { login, register } from '../services/api';
+import { configureApiBaseUrl, getApiBaseUrl, isDefaultPlaceholderUrl, setApiBaseUrl } from '../services/apiConfig';
 
 export default function LoginScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -16,12 +17,22 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('consumer');
+  const [apiUrl, setApiUrl] = useState('');
   const [error, setError] = useState('');
   const { setIsLoggedIn } = useAuth();
+
+  useEffect(() => {
+    getApiBaseUrl().then((url) => setApiUrl(url));
+  }, []);
 
   const submit = async () => {
     try {
       setError('');
+      await setApiBaseUrl(apiUrl || api.defaults.baseURL || '');
+      if (isDefaultPlaceholderUrl(apiUrl)) {
+        setError('Please enter a real pilot server URL (tap the server field below).');
+        return;
+      }
       if (mode === 'login') {
         await login(email, password);
         setIsLoggedIn(true);
@@ -38,6 +49,13 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{t('appName')}</Text>
+      <TextInput
+        style={styles.input}
+        placeholder={t('serverUrl')}
+        autoCapitalize="none"
+        value={apiUrl}
+        onChangeText={setApiUrl}
+      />
       {mode === 'register' && (
         <TextInput style={styles.input} placeholder={t('fullName')} value={fullName} onChangeText={setFullName} />
       )}

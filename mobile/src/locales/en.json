@@ -1,5 +1,6 @@
 {
   "appName": "Smart Consumable Scanner AI",
+  "serverUrl": "Pilot server URL",
   "scan": "Scan",
   "dashboard": "Dashboard",
   "history": "History",

@@ -5,14 +5,25 @@
 
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import { configureApiBaseUrl } from './src/services/apiConfig';
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    configureApiBaseUrl().finally(() => setReady(true));
+  }, []);
+
+  if (!ready) {
+    return <View style={styles.container} />;
+  }
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
