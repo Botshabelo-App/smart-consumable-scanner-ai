@@ -23,6 +23,7 @@ class UserRole(str, Enum):
     ADMINISTRATOR = "administrator"
     CONSUMER = "consumer"
     COMPANY_ADMIN = "company_admin"
+    INSPECTOR = "inspector"
 
 
 class ProductCategory(str, Enum):

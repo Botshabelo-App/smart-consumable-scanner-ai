@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Consumable Scanner AI",
     "slug": "smart-consumable-scanner-ai",
-    "version": "0.1.0-RC1",
+    "version": "0.1.1-RC1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

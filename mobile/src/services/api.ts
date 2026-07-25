@@ -23,6 +23,10 @@ api.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const baseUrl = config.baseURL || api.defaults.baseURL || '';
+  if (baseUrl.includes('loca.lt') || config.url?.includes('loca.lt')) {
+    config.headers['Bypass-Tunnel-Reminder'] = 'true';
+  }
   return config;
 });
 
