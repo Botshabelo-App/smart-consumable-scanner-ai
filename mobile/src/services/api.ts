@@ -53,6 +53,7 @@ export async function logout(): Promise<void> {
 export interface ScanPayload {
   uri: string;
   productName?: string;
+  brand?: string;
   barcodeCode?: string;
   batchNumber?: string;
   productionDate?: string;
@@ -73,7 +74,7 @@ export async function analyzeImage(payload: ScanPayload): Promise<ScanResult> {
 }
 
 async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
-  const { uri, productName, barcodeCode, batchNumber, productionDate, expiryDate, location, companyId, branchId, deviceId } = payload;
+  const { uri, productName, brand, barcodeCode, batchNumber, productionDate, expiryDate, location, companyId, branchId, deviceId } = payload;
   const formData = new FormData();
   const filename = uri.split('/').pop() || 'scan.jpg';
   const match = /\.\w+$/.exec(filename);
@@ -81,6 +82,7 @@ async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
 
   formData.append('image', { uri, name: filename, type } as any);
   if (productName) formData.append('product_name', productName);
+  if (brand) formData.append('brand', brand);
   if (barcodeCode) formData.append('barcode_code', barcodeCode);
   if (batchNumber) formData.append('batch_number', batchNumber);
   if (productionDate) formData.append('production_date', productionDate);

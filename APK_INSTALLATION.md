@@ -2,20 +2,22 @@
 
 ## APK Details
 
-- **File:** `SmartConsumableScannerAI-RC1-Pilot-v8.apk`
-- **Version:** `0.1.7-RC1`
+- **File:** `SmartConsumableScannerAI-RC1-Pilot-v9.apk`
+- **Version:** `0.1.8-RC1`
 - **Package:** `com.smartscanner.ai`
 - **Size:** ~109 MB
-- **SHA-256:** `cf10dd0e162923d3e58ce381a43bad6e5b58e1ceb3bb6c60f1a40837ec009436`
+- **SHA-256:** `2b68fcfe5329a0da0a3300bf22b8054df96763c0a940664a0855d9d14a3a90ba`
 - **Signed:** Yes, with a self-signed RC1 pilot keystore (v2 APK signature scheme)
 - **Status:** Release Candidate 1 — for private pilot evaluation only. Not for Google Play Store or public distribution.
 
-## What's New in v8
+## What's New in v9
 
-- **Automatic packaging detection:** the camera scan now auto-detects barcode/QR codes and uses OCR to extract product name, batch number, printed expiry date, and production date whenever they are visible on the packaging.
-- **Auto-analyze:** after capture, the app automatically sends the image to the AI backend and populates the fields.
-- **Spoken inspection result:** the AI speaks the result out loud (e.g., "Expired – Do not consume").
-- **Visual inspection messages:** the result card shows the exact wording requested:
+- **Automatic packaging detection:** the camera scan auto-detects barcode/QR codes and uses OCR to extract product name, brand, batch/lot number, manufacturing date, and expiry date whenever they are visible.
+- **Improved OCR preprocessing:** auto-contrast, sharpening, denoising, and upscaling for curved, reflective, damaged, and low-light labels.
+- **Packaging defect detection:** the AI flags missing labels, label replacement/expiry-date tampering, barcode/product-name mismatches, and damaged or contaminated packaging.
+- **Brand and packaging-condition fields:** added to the auto-filled form and the result card.
+- **Spoken inspection result:** the AI speaks the exact result message out loud.
+- **Visual inspection messages:** the result card shows the wording you requested:
   - Fresh – Safe to consume
   - Near expiry – Inspect carefully
   - Expired – Do not consume
@@ -44,6 +46,12 @@
 
 > **Note:** The public URL above is a temporary tunnel for this pilot test session. It is not a permanent production deployment. For a long-lived backend you will need to host the Docker Compose stack on your own cloud server.
 
+## Test Account (already created on the live pilot backend)
+
+- **Email:** `moeketsitsomodan@gmail.com`
+- **Password:** `477SectionA`
+- **Role:** Inspector
+
 ## Backend Setup
 
 The APK connects to the FastAPI backend. To run the backend locally:
@@ -64,6 +72,10 @@ python -m uvicorn ai_scanner.main:app --app-dir backend --host 0.0.0.0 --port 80
 
 For a Docker deployment, see `docker-compose.yml` in the repository.
 
+## Real-Device Pilot Testing
+
+For step-by-step test procedures, product categories, success criteria, and data to collect, see `PILOT_TEST_PROTOCOL.md` in the repository.
+
 ## Branding
 
 Final branding is included in the app:
@@ -80,13 +92,13 @@ Final branding is included in the app:
 - History (previous scans)
 - Reports (PDF / CSV / Excel generation)
 - Review workflow
-- Camera scanning, OCR, automatic field population, AI analysis, and spoken results on real products
+- Camera scanning, OCR, automatic field population, AI analysis, spoken results, and Accept/Override on real products
 
 ## Important Notes
 
 - This build is **RC1 Pilot Test** only. Do not publish it or share it outside your pilot organisations.
 - The AI evaluates observable external characteristics from a smartphone camera. It cannot determine the internal condition of sealed or opaque products.
-- For best results, scan in good lighting and hold the phone steady so the barcode and printed text are clearly visible.
+- For best results, scan in good lighting, hold the phone steady, and keep the label 15–25 cm from the camera.
 - The default pilot server URL is a placeholder. You must set a real backend URL before logging in.
 
 ## Support

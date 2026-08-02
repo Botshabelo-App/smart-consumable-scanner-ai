@@ -55,10 +55,12 @@ export interface ScanResult {
   branch_id?: string;
   device_id?: string;
   product_name?: string;
+  brand?: string;
   category?: ProductCategory;
   condition: Condition;
   confidence: number;
   packaging_type?: string;
+  packaging_condition?: string;
   findings?: string[];
   expiry_risk?: string;
   barcode_code?: string;

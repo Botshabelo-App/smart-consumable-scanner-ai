@@ -128,10 +128,12 @@ class ScanRead(BaseModel):
     branch_id: Optional[UUID] = None
     device_id: Optional[UUID] = None
     product_name: Optional[str] = None
+    brand: Optional[str] = None
     category: Optional[ProductCategory] = None
     condition: Condition
     confidence: float
     packaging_type: Optional[str] = None
+    packaging_condition: Optional[str] = None
     findings: List[str] = []
     expiry_risk: Optional[str] = None
     barcode_code: Optional[str] = None

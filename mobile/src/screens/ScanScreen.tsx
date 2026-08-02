@@ -35,14 +35,14 @@ const conditionColor: Record<Condition, string> = {
 const conditionMessage: Record<Condition, string> = {
   fresh: 'Fresh – Safe to consume',
   near_expiry: 'Near expiry – Inspect carefully',
-  suspicious: 'Packaging damage, contamination, or possible label tampering detected',
+  suspicious: 'Possible label or expiry-date tampering detected. Packaging damage or contamination detected.',
   expired: 'Expired – Do not consume',
 };
 
 const spokenMessage: Record<Condition, string> = {
   fresh: 'Inspection result: Fresh. Safe to consume.',
   near_expiry: 'Inspection result: Near expiry. Inspect carefully before use.',
-  suspicious: 'Inspection result: Suspicious. Packaging damage, contamination, or possible label tampering detected.',
+  suspicious: 'Inspection result: Suspicious. Possible label or expiry-date tampering detected, or packaging damage or contamination.',
   expired: 'Inspection result: Expired. Do not consume.',
 };
 
@@ -65,6 +65,7 @@ export default function ScanScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string[]>([]);
   const [productName, setProductName] = useState('');
+  const [brand, setBrand] = useState('');
   const [barcode, setBarcode] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
   const [productionDate, setProductionDate] = useState('');
@@ -91,6 +92,7 @@ export default function ScanScreen() {
   useEffect(() => {
     if (result) {
       setProductName(result.product_name || productName);
+      setBrand(result.brand || brand);
       setBarcode(result.barcode_code || barcode);
       setBatchNumber(result.batch_number || batchNumber);
       setProductionDate(result.production_date ? formatDate(result.production_date) : productionDate);
@@ -144,6 +146,7 @@ export default function ScanScreen() {
       const info = await lookupBarcode(code);
       if (info.product?.name) {
         setProductName(info.product.name);
+        setBrand(info.product?.manufacturer || brand);
       }
       if (info.batch_number) setBatchNumber(info.batch_number);
       if (info.expiry_date) setExpiryDate(formatDate(info.expiry_date));
@@ -203,6 +206,7 @@ export default function ScanScreen() {
       const payload: ScanPayload = {
         uri,
         productName,
+        brand: brand || undefined,
         barcodeCode: barcode || undefined,
         batchNumber: batchNumber || undefined,
         productionDate: productionDate || undefined,
@@ -222,6 +226,7 @@ export default function ScanScreen() {
     setPhoto(null);
     setCaptures([]);
     setProductName('');
+    setBrand('');
     setBarcode('');
     setBatchNumber('');
     setProductionDate('');
@@ -326,6 +331,12 @@ export default function ScanScreen() {
       />
       <TextInput
         style={styles.input}
+        placeholder="Brand (auto-detected or manual)"
+        value={brand}
+        onChangeText={setBrand}
+      />
+      <TextInput
+        style={styles.input}
         placeholder="Barcode (auto-detected or manual)"
         value={barcode}
         onChangeText={setBarcode}
@@ -369,17 +380,21 @@ export default function ScanScreen() {
           {result.ai_vs_label_discrepancy && (
             <Text style={styles.discrepancy}>Possible label or expiry-date tampering detected: {result.discrepancy_reason}</Text>
           )}
+          {result.brand ? <Text style={styles.detail}>Brand: {result.brand}</Text> : null}
           <Text style={styles.detail}>Product: {result.product_name || 'Unknown'}</Text>
           {result.barcode_code ? <Text style={styles.detail}>Barcode: {result.barcode_code}</Text> : null}
-          {result.batch_number ? <Text style={styles.detail}>Batch: {result.batch_number}</Text> : null}
+          {result.batch_number ? <Text style={styles.detail}>Batch/Lot: {result.batch_number}</Text> : null}
           {result.production_date ? (
-            <Text style={styles.detail}>Production date: {formatDate(result.production_date)}</Text>
+            <Text style={styles.detail}>Manufacturing date: {formatDate(result.production_date)}</Text>
           ) : null}
           {result.expiry_date ? (
             <Text style={styles.detail}>Expiry date: {formatDate(result.expiry_date)}</Text>
           ) : null}
           <Text style={styles.detail}>Category: {result.category || 'Unknown'}</Text>
-          <Text style={styles.detail}>Packaging: {result.packaging_type || 'Unknown'}</Text>
+          <Text style={styles.detail}>Packaging type: {result.packaging_type || 'Unknown'}</Text>
+          {result.packaging_condition ? (
+            <Text style={styles.detail}>Packaging condition: {result.packaging_condition}</Text>
+          ) : null}
           <Text style={styles.detail}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
           <Text style={styles.subheading}>Why the AI decided this:</Text>
           {(result.findings || []).map((finding, idx) => (

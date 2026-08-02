@@ -3,6 +3,7 @@
 # This file is part of the Smart Consumable Scanner AI project.
 # Use is subject to the project licence terms.
 
+import re
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -105,12 +106,63 @@ def _apply_expiry_logic(
     )
 
 
+def _normalize_name(name: Optional[str]) -> str:
+    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+
+
+def _packaging_condition_from_ai(ai_result: ScanResult) -> str:
+    if ai_result.condition == Condition.SUSPICIOUS and any(
+        f in " ".join(ai_result.findings or []) for f in ["contamination", "damage", "tear", "hole", "dent", "swelling", "leak"]
+    ):
+        return "damaged / contaminated"
+    if ai_result.condition == Condition.EXPIRED:
+        return "expired"
+    if ai_result.condition == Condition.NEAR_EXPIRY:
+        return "near expiry"
+    return "intact"
+
+
+def _enrich_findings(
+    ai_result: ScanResult,
+    ocr: OcrExtraction,
+    barcode_code: Optional[str],
+    barcode_product_name: Optional[str],
+) -> List[str]:
+    """Add human-readable packaging-defect and OCR-quality findings."""
+    findings = list(ai_result.findings or [])
+
+    if ocr.label_confidence:
+        findings.append(f"OCR label confidence: {ocr.label_confidence:.0%}")
+
+    if ocr.brand:
+        findings.append(f"Brand detected: {ocr.brand}")
+
+    if not ocr.raw_text or len(ocr.raw_text.strip()) < 10:
+        findings.append("No clear label text detected — verify label is facing camera and readable.")
+    elif ocr.expiry_date is None and ocr.batch_number is None:
+        findings.append("Expiry or batch information not found on label — manual check recommended.")
+
+    if barcode_code and barcode_product_name and ocr.product_name:
+        if _normalize_name(barcode_product_name) not in _normalize_name(ocr.product_name) and _normalize_name(ocr.product_name) not in _normalize_name(barcode_product_name):
+            findings.append(
+                f"Barcode lookup product '{barcode_product_name}' does not match label product '{ocr.product_name}'; possible counterfeit or barcode mismatch."
+            )
+            ai_result.condition = Condition.SUSPICIOUS
+            ai_result.confidence = max(ai_result.confidence, 0.80)
+
+    packaging_condition = _packaging_condition_from_ai(ai_result)
+    findings.append(f"Packaging condition: {packaging_condition}")
+
+    return findings
+
+
 @router.post("/analyze", response_model=ScanRead)
 @limiter.limit("30/minute")
 async def analyze_image(
     request: Request,
     image: UploadFile = File(...),
     product_name: Optional[str] = Form(None),
+    brand: Optional[str] = Form(None),
     category: Optional[str] = Form(None),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
@@ -130,13 +182,14 @@ async def analyze_image(
         await image.seek(0)
         ocr = extract_from_bytes(image_bytes)
     except Exception:
-        ocr = OcrExtraction(raw_text="")
+        ocr = OcrExtraction()
 
     barcode_code = _coalesce_field(barcode_code, ocr.barcode)
     batch_number = _coalesce_field(batch_number, ocr.batch_number)
     production_date = _coalesce_field(production_date, ocr.production_date)
     expiry_date = _coalesce_field(expiry_date, ocr.expiry_date)
     product_name = _coalesce_field(product_name, ocr.product_name)
+    brand = _coalesce_field(brand, ocr.brand)
 
     # 2. Resolve product from barcode (OpenFoodFacts fallback).
     barcode_obj = _resolve_product_from_barcode(db, barcode_code) if barcode_code else None
@@ -151,6 +204,10 @@ async def analyze_image(
 
     # 3. Apply printed-date and production-date cross-checks.
     ai_result = _apply_expiry_logic(ai_result, expiry_date, production_date)
+
+    # 4. Add packaging-defect and OCR-quality findings.
+    barcode_product_name = product.name if product else (barcode_obj.product.name if barcode_obj and barcode_obj.product else None)
+    ai_result.findings = _enrich_findings(ai_result, ocr, barcode_code, barcode_product_name)
 
     product_category = None
     if ai_result.category:
@@ -202,6 +259,13 @@ async def analyze_image(
     db.commit()
     db.refresh(scan)
 
+    # Attach brand/packaging condition to the ORM for the response without adding DB columns.
+    # Pydantic reads these as attributes.
+    brand = brand or scan_product_name
+    packaging_condition = _packaging_condition_from_ai(ai_result)
+    scan.brand = brand
+    scan.packaging_condition = packaging_condition
+
     log_event(
         action="scan_created",
         user_id=user.id,
@@ -231,39 +295,20 @@ def get_scan(scan_id: str, db: Session = Depends(get_db), user: User = Depends(r
 
 
 @router.post("/{scan_id}/feedback", response_model=ScanRead)
-def submit_scan_feedback(
+def feedback(
     scan_id: str,
     payload: ScanFeedbackPayload,
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    """Inspector accepts or overrides an AI assessment and records the reason."""
     scan = db.query(Scan).filter(Scan.id == uuid.UUID(scan_id)).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
-
     scan.inspector_accepted = payload.accepted
     if not payload.accepted:
-        scan.override_condition = payload.override_condition.value if payload.override_condition else None
+        scan.override_condition = payload.suggested_condition
         scan.override_reason = payload.reason
-        scan.override_notes = payload.additional_notes
-    else:
-        scan.override_condition = None
-        scan.override_reason = None
-        scan.override_notes = None
-
+        scan.override_notes = payload.notes
     db.commit()
     db.refresh(scan)
-
-    action = "scan_accepted" if payload.accepted else "scan_overridden"
-    details = f"accepted={payload.accepted}"
-    if not payload.accepted:
-        details += f", override_condition={scan.override_condition}, reason={scan.override_reason}"
-    log_event(
-        action=action,
-        user_id=user.id,
-        resource_type="scan",
-        resource_id=scan_id,
-        details=details,
-    )
     return scan
