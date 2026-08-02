@@ -55,6 +55,7 @@ export interface ScanPayload {
   productName?: string;
   barcodeCode?: string;
   batchNumber?: string;
+  productionDate?: string;
   expiryDate?: string;
   location?: { latitude: number; longitude: number };
   companyId?: string;
@@ -72,7 +73,7 @@ export async function analyzeImage(payload: ScanPayload): Promise<ScanResult> {
 }
 
 async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
-  const { uri, productName, barcodeCode, batchNumber, expiryDate, location, companyId, branchId, deviceId } = payload;
+  const { uri, productName, barcodeCode, batchNumber, productionDate, expiryDate, location, companyId, branchId, deviceId } = payload;
   const formData = new FormData();
   const filename = uri.split('/').pop() || 'scan.jpg';
   const match = /\.\w+$/.exec(filename);
@@ -82,6 +83,7 @@ async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
   if (productName) formData.append('product_name', productName);
   if (barcodeCode) formData.append('barcode_code', barcodeCode);
   if (batchNumber) formData.append('batch_number', batchNumber);
+  if (productionDate) formData.append('production_date', productionDate);
   if (expiryDate) formData.append('expiry_date', expiryDate);
   if (location) {
     formData.append('latitude', String(location.latitude));
@@ -93,6 +95,7 @@ async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
 
   const { data } = await api.post('/scans/analyze', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
   });
   return data;
 }

@@ -4,7 +4,7 @@
 # Use is subject to the project licence terms.
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -18,6 +18,7 @@ from ai_scanner.app.schemas import Condition, ProductCategory, ScanFeedbackPaylo
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
 from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.openfoodfacts import lookup_barcode as openfoodfacts_lookup
+from ai_scanner.app.services.ocr import OcrExtraction, extract_from_bytes
 from ai_scanner.app.services.report_service import save_upload
 
 router = APIRouter()
@@ -57,6 +58,53 @@ def _discrepancy_reason(ai_condition: Condition, expiry_date: Optional[datetime]
     return None
 
 
+def _coalesce_field(form_value, ocr_value):
+    return form_value if form_value is not None else ocr_value
+
+
+def _apply_expiry_logic(
+    ai_result: ScanResult, expiry_date: Optional[datetime], production_date: Optional[datetime]
+) -> ScanResult:
+    """Adjust AI condition when the printed expiry/production date disagrees with image analysis."""
+    if not expiry_date:
+        return ai_result
+
+    now = datetime.utcnow()
+    findings = list(ai_result.findings or [])
+    condition = ai_result.condition
+    confidence = ai_result.confidence
+
+    if expiry_date < now:
+        condition = Condition.EXPIRED
+        confidence = max(confidence, 0.95)
+        findings.append("Printed expiry date has passed.")
+    elif expiry_date <= now + timedelta(days=7):
+        if condition != Condition.EXPIRED:
+            condition = Condition.NEAR_EXPIRY
+            confidence = max(confidence, 0.85)
+            findings.append("Printed expiry date is within 7 days.")
+    else:
+        if condition == Condition.EXPIRED:
+            condition = Condition.SUSPICIOUS
+            confidence = 0.78
+            findings.append("AI detected expired appearance but printed expiry date is in the future; possible label tampering.")
+
+    if production_date and expiry_date and production_date > expiry_date:
+        condition = Condition.SUSPICIOUS
+        confidence = 0.80
+        findings.append("Production date is after the expiry date; possible label tampering.")
+
+    return ScanResult(
+        condition=condition,
+        confidence=round(confidence, 3),
+        product_name=ai_result.product_name,
+        category=ai_result.category,
+        packaging_type=ai_result.packaging_type,
+        findings=findings,
+        expiry_risk=ai_result.expiry_risk,
+    )
+
+
 @router.post("/analyze", response_model=ScanRead)
 @limiter.limit("30/minute")
 async def analyze_image(
@@ -76,6 +124,21 @@ async def analyze_image(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
+    # 1. OCR on the captured image to auto-fill packaging fields.
+    try:
+        image_bytes = await image.read()
+        await image.seek(0)
+        ocr = extract_from_bytes(image_bytes)
+    except Exception:
+        ocr = OcrExtraction(raw_text="")
+
+    barcode_code = _coalesce_field(barcode_code, ocr.barcode)
+    batch_number = _coalesce_field(batch_number, ocr.batch_number)
+    production_date = _coalesce_field(production_date, ocr.production_date)
+    expiry_date = _coalesce_field(expiry_date, ocr.expiry_date)
+    product_name = _coalesce_field(product_name, ocr.product_name)
+
+    # 2. Resolve product from barcode (OpenFoodFacts fallback).
     barcode_obj = _resolve_product_from_barcode(db, barcode_code) if barcode_code else None
     product_id = barcode_obj.product_id if barcode_obj else None
     product = db.query(Product).filter(Product.id == product_id).first() if product_id else None
@@ -85,6 +148,9 @@ async def analyze_image(
         ai_result: ScanResult = await ai_client.analyze_image(image, product_hint=hint)
     except AIAnalysisError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
+
+    # 3. Apply printed-date and production-date cross-checks.
+    ai_result = _apply_expiry_logic(ai_result, expiry_date, production_date)
 
     product_category = None
     if ai_result.category:
@@ -97,7 +163,8 @@ async def analyze_image(
     elif product and product.category:
         product_category = product.category
 
-    scan_product_name = ai_result.product_name or product_name or (product.name if product else None)
+    # Prefer user/OCR-provided product name over AI-derived one, since packaging text is authoritative.
+    scan_product_name = product_name or ai_result.product_name or (product.name if product else None)
     discrepancy_reason = _discrepancy_reason(ai_result.condition, expiry_date or (barcode_obj.expiry_date if barcode_obj else None))
 
     scan = Scan(

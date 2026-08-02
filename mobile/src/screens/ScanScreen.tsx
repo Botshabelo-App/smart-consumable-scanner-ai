@@ -6,6 +6,7 @@
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Location from 'expo-location';
+import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -31,16 +32,45 @@ const conditionColor: Record<Condition, string> = {
   expired: '#c62828',
 };
 
+const conditionMessage: Record<Condition, string> = {
+  fresh: 'Fresh – Safe to consume',
+  near_expiry: 'Near expiry – Inspect carefully',
+  suspicious: 'Packaging damage, contamination, or possible label tampering detected',
+  expired: 'Expired – Do not consume',
+};
+
+const spokenMessage: Record<Condition, string> = {
+  fresh: 'Inspection result: Fresh. Safe to consume.',
+  near_expiry: 'Inspection result: Near expiry. Inspect carefully before use.',
+  suspicious: 'Inspection result: Suspicious. Packaging damage, contamination, or possible label tampering detected.',
+  expired: 'Inspection result: Expired. Do not consume.',
+};
+
+function formatDate(iso?: string): string {
+  if (!iso) return '';
+  return iso.split('T')[0];
+}
+
+function getResultMessage(result: ScanResult): string {
+  if (result.ai_vs_label_discrepancy && result.discrepancy_reason) {
+    return `Possible label or expiry-date tampering detected: ${result.discrepancy_reason}`;
+  }
+  return conditionMessage[result.condition];
+}
+
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [captures, setCaptures] = useState<string[]>([]);
   const [productName, setProductName] = useState('');
   const [barcode, setBarcode] = useState('');
   const [batchNumber, setBatchNumber] = useState('');
+  const [productionDate, setProductionDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
-  const [scanBarcode, setScanBarcode] = useState(false);
+  const [scanBarcode, setScanBarcode] = useState(true);
+  const [autoAnalyze, setAutoAnalyze] = useState(true);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
@@ -59,6 +89,27 @@ export default function ScanScreen() {
   }, [permission]);
 
   useEffect(() => {
+    if (result) {
+      setProductName(result.product_name || productName);
+      setBarcode(result.barcode_code || barcode);
+      setBatchNumber(result.batch_number || batchNumber);
+      setProductionDate(result.production_date ? formatDate(result.production_date) : productionDate);
+      setExpiryDate(result.expiry_date ? formatDate(result.expiry_date) : expiryDate);
+
+      const message = getResultMessage(result);
+      Speech.speak(message, { language: 'en' });
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
+  useEffect(() => {
+    if (photo) {
+      setTimeout(() => scrollRef.current?.scrollTo({ y: 400, animated: true }), 200);
+    }
+  }, [photo]);
+
+  useEffect(() => {
     if (!continuous || loading) return;
     const interval = setInterval(() => {
       takePicture();
@@ -70,8 +121,8 @@ export default function ScanScreen() {
     try {
       const info = await FileSystem.getInfoAsync(uri);
       if (!info.exists || info.size < 1024) {
-        setQualityNote('Image too small or not saved.');
-        return false;
+        setQualityNote('Image too small or not saved; upload may fail.');
+        return true;
       }
       const mb = info.size / (1024 * 1024);
       if (mb > 10) {
@@ -81,8 +132,23 @@ export default function ScanScreen() {
       }
       return true;
     } catch (e) {
-      setQualityNote('Could not verify image quality.');
-      return false;
+      // Some camera URIs (especially content:// on certain devices/emulators) are not statable,
+      // but they are still valid for upload. Do not block analysis.
+      setQualityNote(null);
+      return true;
+    }
+  };
+
+  const applyBarcodeInfo = async (code: string) => {
+    try {
+      const info = await lookupBarcode(code);
+      if (info.product?.name) {
+        setProductName(info.product.name);
+      }
+      if (info.batch_number) setBatchNumber(info.batch_number);
+      if (info.expiry_date) setExpiryDate(formatDate(info.expiry_date));
+    } catch (e: any) {
+      // Barcode lookup is best-effort; ignore lookup failures.
     }
   };
 
@@ -91,20 +157,9 @@ export default function ScanScreen() {
     const code = scanningResult.data;
     if (code === barcode) return;
     setBarcode(code);
-    setScanBarcode(false);
-    try {
-      const info = await lookupBarcode(code);
-      if (info.product) {
-        setProductName(info.product.name);
-      } else {
-        setProductName('');
-      }
-      if (info.batch_number) setBatchNumber(info.batch_number);
-      if (info.expiry_date) setExpiryDate(info.expiry_date.split('T')[0]);
-      Alert.alert('Barcode scanned', `Code: ${code}\nProduct: ${info.product?.name || 'Unknown'}`);
-    } catch (e: any) {
-      Alert.alert('Barcode lookup failed', e?.response?.data?.detail || e.message);
-    }
+    await applyBarcodeInfo(code);
+    // If auto-analyze is enabled and we have a photo, a separate capture will trigger analysis.
+    // The barcode state is now populated for the next analyze call.
   };
 
   const takePicture = async () => {
@@ -115,6 +170,9 @@ export default function ScanScreen() {
         setPhoto(picture.uri);
         setCaptures((prev) => [picture.uri, ...prev].slice(0, 5));
         setResult(null);
+        if (autoAnalyze) {
+          analyze(picture.uri);
+        }
       }
     } catch (e: any) {
       Alert.alert('Capture error', e.message);
@@ -130,19 +188,24 @@ export default function ScanScreen() {
     setResult(null);
     try {
       let location;
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const pos = await Location.getCurrentPositionAsync({});
-        location = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        };
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({});
+          location = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+        }
+      } catch (locErr: any) {
+        // Location is optional; proceed without GPS if services are disabled or permission is denied.
       }
       const payload: ScanPayload = {
         uri,
         productName,
         barcodeCode: barcode || undefined,
         batchNumber: batchNumber || undefined,
+        productionDate: productionDate || undefined,
         expiryDate: expiryDate || undefined,
         location,
       };
@@ -161,6 +224,7 @@ export default function ScanScreen() {
     setProductName('');
     setBarcode('');
     setBatchNumber('');
+    setProductionDate('');
     setExpiryDate('');
     setResult(null);
     setQualityNote(null);
@@ -212,14 +276,14 @@ export default function ScanScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Scan a consumable product</Text>
       <CameraView
         ref={cameraRef}
         style={styles.camera}
         facing="back"
         onCameraReady={() => setCameraReady(true)}
-        barcodeScannerSettings={scanBarcode ? { barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'code128'] } : undefined}
+        barcodeScannerSettings={{ barcodeTypes: ['qr', 'ean13', 'ean8', 'upc_a', 'code128'] }}
         onBarcodeScanned={scanBarcode ? handleBarcodeScanned : undefined}
       />
       <View style={styles.row}>
@@ -227,6 +291,10 @@ export default function ScanScreen() {
         <View style={styles.continuousRow}>
           <Text>Continuous</Text>
           <Switch value={continuous} onValueChange={setContinuous} />
+        </View>
+        <View style={styles.continuousRow}>
+          <Text>Auto analyze</Text>
+          <Switch value={autoAnalyze} onValueChange={setAutoAnalyze} />
         </View>
         <View style={styles.continuousRow}>
           <Text>Scan barcode</Text>
@@ -245,29 +313,41 @@ export default function ScanScreen() {
           />
         </View>
       )}
+
+      <Text style={styles.hint}>
+        Barcode scanning and OCR run automatically when you capture. Edit any field below if the auto-detection is wrong.
+      </Text>
+
       <TextInput
         style={styles.input}
-        placeholder="Product name (optional)"
+        placeholder="Product name (auto-detected or manual)"
         value={productName}
         onChangeText={setProductName}
       />
       <TextInput
         style={styles.input}
-        placeholder="Barcode (optional)"
+        placeholder="Barcode (auto-detected or manual)"
         value={barcode}
         onChangeText={setBarcode}
         autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
-        placeholder="Batch number (optional)"
+        placeholder="Batch number (auto-detected or manual)"
         value={batchNumber}
         onChangeText={setBatchNumber}
         autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
-        placeholder="Printed expiry date YYYY-MM-DD (optional)"
+        placeholder="Production date YYYY-MM-DD (auto-detected or manual)"
+        value={productionDate}
+        onChangeText={setProductionDate}
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Printed expiry date YYYY-MM-DD (auto-detected or manual)"
         value={expiryDate}
         onChangeText={setExpiryDate}
         autoCapitalize="none"
@@ -284,15 +364,23 @@ export default function ScanScreen() {
       {result && (
         <View style={[styles.result, { borderColor: conditionColor[result.condition], borderWidth: 2 }]}>
           <Text style={[styles.resultTitle, { color: conditionColor[result.condition] }]}>
-            {result.condition.toUpperCase()}
+            {conditionMessage[result.condition]}
           </Text>
+          {result.ai_vs_label_discrepancy && (
+            <Text style={styles.discrepancy}>Possible label or expiry-date tampering detected: {result.discrepancy_reason}</Text>
+          )}
           <Text style={styles.detail}>Product: {result.product_name || 'Unknown'}</Text>
+          {result.barcode_code ? <Text style={styles.detail}>Barcode: {result.barcode_code}</Text> : null}
+          {result.batch_number ? <Text style={styles.detail}>Batch: {result.batch_number}</Text> : null}
+          {result.production_date ? (
+            <Text style={styles.detail}>Production date: {formatDate(result.production_date)}</Text>
+          ) : null}
+          {result.expiry_date ? (
+            <Text style={styles.detail}>Expiry date: {formatDate(result.expiry_date)}</Text>
+          ) : null}
           <Text style={styles.detail}>Category: {result.category || 'Unknown'}</Text>
           <Text style={styles.detail}>Packaging: {result.packaging_type || 'Unknown'}</Text>
           <Text style={styles.detail}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
-          {result.ai_vs_label_discrepancy && (
-            <Text style={styles.discrepancy}>Flagged: {result.discrepancy_reason}</Text>
-          )}
           <Text style={styles.subheading}>Why the AI decided this:</Text>
           {(result.findings || []).map((finding, idx) => (
             <Text key={idx} style={styles.finding}>
@@ -377,6 +465,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 12,
     marginBottom: 4,
+  },
+  hint: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   camera: {
     width: '100%',
