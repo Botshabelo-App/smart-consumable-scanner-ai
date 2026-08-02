@@ -61,6 +61,8 @@ export interface ScanResult {
   confidence: number;
   packaging_type?: string;
   packaging_condition?: string;
+  label_confidence?: number;
+  detected_fields?: string[];
   findings?: string[];
   expiry_risk?: string;
   barcode_code?: string;

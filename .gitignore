@@ -58,3 +58,4 @@ ai-service/experiments/
 mobile/device_logs/
 /reports/
 backend/reports/
+*.apk

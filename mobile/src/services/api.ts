@@ -185,4 +185,35 @@ export async function clearOfflineScans(): Promise<void> {
   await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
 }
 
+export async function syncOfflineScans(
+  onProgress?: (completed: number, total: number) => void
+): Promise<{ uploaded: number; failed: number }> {
+  const queued: QueuedScan[] = JSON.parse((await AsyncStorage.getItem(OFFLINE_QUEUE_KEY)) || '[]');
+  if (!queued.length) return { uploaded: 0, failed: 0 };
+
+  let uploaded = 0;
+  let failed = 0;
+  const remaining: QueuedScan[] = [];
+
+  for (let i = 0; i < queued.length; i++) {
+    const scan = queued[i];
+    try {
+      await uploadScan(scan);
+      uploaded += 1;
+      onProgress?.(uploaded + failed, queued.length);
+    } catch (e: any) {
+      // Keep the scan in the queue if the failure looks like a network error.
+      if (e.message?.includes('Network') || e.code === 'ECONNABORTED' || !e.response) {
+        remaining.push(scan);
+      } else {
+        // Non-retryable server error; count as failed but still remove.
+        failed += 1;
+      }
+    }
+  }
+
+  await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remaining));
+  return { uploaded, failed };
+}
+
 export default api;

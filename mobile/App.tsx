@@ -11,13 +11,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
 import AppNavigator from './src/navigation/AppNavigator';
+import { syncOfflineScans } from './src/services/api';
 import { configureApiBaseUrl } from './src/services/apiConfig';
 
 export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    configureApiBaseUrl().finally(() => setReady(true));
+    configureApiBaseUrl()
+      .finally(() => syncOfflineScans())
+      .finally(() => setReady(true));
   }, []);
 
   if (!ready) {

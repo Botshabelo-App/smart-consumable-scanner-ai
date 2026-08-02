@@ -4,12 +4,13 @@
 // Use is subject to the project licence terms.
 
 import React, { useEffect, useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Button, Image, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { brand } from '../config/brand';
 import { t } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import api, { login, register } from '../services/api';
-import { configureApiBaseUrl, getApiBaseUrl, isDefaultPlaceholderUrl, setApiBaseUrl } from '../services/apiConfig';
+import { getApiBaseUrl, isDefaultPlaceholderUrl, setApiBaseUrl } from '../services/apiConfig';
 
 export default function LoginScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -48,6 +49,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
+      <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>{t('appName')}</Text>
       <TextInput
         style={styles.input}
@@ -93,13 +95,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#fff',
+    backgroundColor: brand.lightBackground || '#fff',
+  },
+  logo: {
+    width: 260,
+    height: 90,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 24,
     textAlign: 'center',
+    color: brand.primaryColor,
   },
   input: {
     borderWidth: 1,

@@ -4,7 +4,7 @@
 // Use is subject to the project licence terms.
 
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { generateReport, getScans } from '../services/api';
 import { ScanResult } from '../types';
@@ -15,9 +15,13 @@ export default function ReportsScreen() {
   const [notes, setNotes] = useState('');
   const [format, setFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf');
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    getScans().then(setScans);
+    getScans()
+      .then(setScans)
+      .catch(() => Alert.alert('Error', 'Could not load scans'))
+      .finally(() => setFetching(false));
   }, []);
 
   const createReport = async () => {
@@ -36,26 +40,22 @@ export default function ReportsScreen() {
     }
   };
 
-  if (!scans.length) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (fetching) return <ActivityIndicator style={{ flex: 1 }} />;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Generate Report</Text>
-      <FlatList
-        data={scans}
-        keyExtractor={(item) => item.id}
-        scrollEnabled={false}
-        renderItem={({ item }) => (
-          <View style={[styles.card, selected === item.id && styles.selected]}>
-            <Text>{item.product_name || 'Unknown product'}</Text>
-            <Text>{item.condition}</Text>
-            <Button
-              title={selected === item.id ? 'Selected' : 'Select'}
-              onPress={() => setSelected(item.id)}
-            />
-          </View>
-        )}
-      />
+      {scans.length === 0 && <Text style={styles.empty}>No scans available.</Text>}
+      {scans.map((item) => (
+        <View key={item.id} style={[styles.card, selected === item.id && styles.selected]}>
+          <Text>{item.product_name || 'Unknown product'}</Text>
+          <Text>{item.condition}</Text>
+          <Button
+            title={selected === item.id ? 'Selected' : 'Select'}
+            onPress={() => setSelected(item.id)}
+          />
+        </View>
+      ))}
       <TextInput
         style={styles.input}
         placeholder="Notes"
@@ -76,7 +76,6 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     padding: 16,
     backgroundColor: '#fff',
   },
@@ -109,5 +108,9 @@ const styles = StyleSheet.create({
   formatButton: {
     flex: 1,
     marginHorizontal: 4,
+  },
+  empty: {
+    textAlign: 'center',
+    marginTop: 24,
   },
 });

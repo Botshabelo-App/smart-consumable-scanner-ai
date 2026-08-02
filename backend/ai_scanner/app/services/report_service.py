@@ -6,6 +6,7 @@
 import base64
 import io
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -41,24 +42,57 @@ def _qr_image(data: str):
     return Image(buf, width=1.2 * inch, height=1.2 * inch)
 
 
+def _safe_image(path: str, width: float = 3 * inch, height: float = 3 * inch):
+    try:
+        if os.path.exists(path):
+            return Image(path, width=width, height=height)
+    except Exception:
+        pass
+    return None
+
+
+def _extract_from_findings(findings: Optional[str], prefix: str) -> Optional[str]:
+    if not findings:
+        return None
+    for line in findings.split("\n"):
+        if line.lower().startswith(prefix.lower()):
+            match = re.match(rf"{re.escape(prefix)}\s*[:\-]?\s*(.*)", line, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+    return None
+
+
 def _build_report_rows(scan: Scan, report: Report, inspector_name: Optional[str]) -> list:
     company = getattr(scan, "company", None)
     branch = getattr(scan, "branch", None)
+    findings_text = scan.findings or ""
+    brand = _extract_from_findings(findings_text, "Brand detected") or getattr(scan, "brand", None) or "Unknown"
+    packaging_condition = _extract_from_findings(findings_text, "Packaging condition") or getattr(scan, "packaging_condition", None) or "N/A"
+    ocr_conf_text = _extract_from_findings(findings_text, "OCR label confidence")
+    label_confidence = ocr_conf_text if ocr_conf_text else (
+        f"{getattr(scan, 'label_confidence', 0):.0%}" if getattr(scan, 'label_confidence', None) is not None else "N/A"
+    )
     return [
         ["Company", company.name if company else "N/A"],
         ["Branch", branch.name if branch else "N/A"],
         ["Product", scan.product_name or "Unknown"],
+        ["Brand", brand],
         ["Category", scan.category.value if scan.category else "Unknown"],
-        ["Packaging", scan.packaging_type or "N/A"],
-        ["Batch", scan.batch_number or "N/A"],
+        ["Packaging type", scan.packaging_type or "N/A"],
+        ["Packaging condition", packaging_condition],
+        ["Batch / Lot", scan.batch_number or "N/A"],
         ["Barcode", scan.barcode_code or "N/A"],
+        ["Manufacturing date", _format_datetime(scan.production_date) if scan.production_date else "N/A"],
+        ["Expiry date", _format_datetime(scan.expiry_date) if scan.expiry_date else "N/A"],
         ["Condition", scan.condition.value],
-        ["Confidence", f"{scan.confidence:.1%}"],
-        ["AI findings", "\n".join(scan.findings.split("\n")) if scan.findings else "None"],
+        ["AI confidence", f"{scan.confidence:.1%}"],
+        ["Label OCR confidence", label_confidence],
+        ["AI findings", findings_text.replace("\n", "<br/>") if findings_text else "None"],
         ["Inspector", inspector_name or "Unknown"],
-        ["GPS", f"{scan.latitude}, {scan.longitude}" if scan.latitude and scan.longitude else "N/A"],
-        ["Date/Time", _format_datetime(scan.created_at)],
+        ["GPS coordinates", f"{scan.latitude}, {scan.longitude}" if scan.latitude and scan.longitude else "N/A"],
+        ["Inspection timestamp", _format_datetime(scan.created_at)],
         ["Report ID", report.report_id],
+        ["Report generated", _format_datetime(report.generated_at)],
     ]
 
 
@@ -70,6 +104,7 @@ def generate_pdf(scan: Scan, report: Report, inspector_name: Optional[str] = Non
     story = []
 
     story.append(Paragraph("<b>Smart Consumable Scanner AI – Inspection Report</b>", styles["Title"]))
+    story.append(Paragraph("This report is generated from a smartphone-captured image and AI analysis. It records observable packaging characteristics and is not a definitive food-safety laboratory test.", styles["Normal"]))
     story.append(Spacer(1, 12))
 
     data = _build_report_rows(scan, report, inspector_name)
@@ -82,6 +117,13 @@ def generate_pdf(scan: Scan, report: Report, inspector_name: Optional[str] = Non
     story.append(table)
     story.append(Spacer(1, 12))
 
+    # Evidence photo
+    photo = _safe_image(scan.image_path or "", width=3 * inch, height=3 * inch)
+    if photo:
+        story.append(Paragraph("<b>Evidence photograph</b>", styles["Heading3"]))
+        story.append(photo)
+        story.append(Spacer(1, 12))
+
     # Signature image (base64 data URI) if provided
     if report.signature_data:
         try:
@@ -92,6 +134,10 @@ def generate_pdf(scan: Scan, report: Report, inspector_name: Optional[str] = Non
             story.append(Spacer(1, 12))
         except Exception:
             pass
+    else:
+        story.append(Paragraph("<b>Inspector signature</b>", styles["Heading3"]))
+        story.append(Paragraph("____________________________________", styles["Normal"]))
+        story.append(Spacer(1, 12))
 
     # QR code linking to this report
     story.append(Paragraph("<b>Verification QR code</b>", styles["Heading3"]))
@@ -104,22 +150,36 @@ def generate_pdf(scan: Scan, report: Report, inspector_name: Optional[str] = Non
 def _report_dict(scan: Scan, report: Report, inspector_name: Optional[str]) -> Dict[str, Any]:
     company = getattr(scan, "company", None)
     branch = getattr(scan, "branch", None)
+    findings_text = scan.findings or ""
+    brand = _extract_from_findings(findings_text, "Brand detected") or getattr(scan, "brand", None) or "Unknown"
+    packaging_condition = _extract_from_findings(findings_text, "Packaging condition") or getattr(scan, "packaging_condition", None) or "N/A"
+    ocr_conf_text = _extract_from_findings(findings_text, "OCR label confidence")
+    label_confidence = ocr_conf_text if ocr_conf_text else (
+        f"{getattr(scan, 'label_confidence', 0):.0%}" if getattr(scan, 'label_confidence', None) is not None else "N/A"
+    )
     return {
         "report_id": report.report_id,
         "company": company.name if company else "N/A",
         "branch": branch.name if branch else "N/A",
         "product": scan.product_name or "Unknown",
+        "brand": brand,
         "category": scan.category.value if scan.category else "Unknown",
-        "packaging": scan.packaging_type or "N/A",
+        "packaging_type": scan.packaging_type or "N/A",
+        "packaging_condition": packaging_condition,
         "batch": scan.batch_number or "N/A",
         "barcode": scan.barcode_code or "N/A",
+        "manufacturing_date": _format_datetime(scan.production_date) if scan.production_date else "N/A",
+        "expiry_date": _format_datetime(scan.expiry_date) if scan.expiry_date else "N/A",
         "condition": scan.condition.value,
-        "confidence": scan.confidence,
-        "findings": scan.findings or "",
+        "ai_confidence": scan.confidence,
+        "label_ocr_confidence": label_confidence,
+        "findings": findings_text,
         "inspector": inspector_name or "Unknown",
+        "inspector_signature_present": bool(report.signature_data),
         "latitude": scan.latitude,
         "longitude": scan.longitude,
         "inspected_at": _format_datetime(scan.created_at),
+        "generated_at": _format_datetime(report.generated_at),
     }
 
 

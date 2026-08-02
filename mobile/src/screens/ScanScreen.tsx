@@ -6,7 +6,6 @@
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system';
 import * as Location from 'expo-location';
-import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,7 +21,10 @@ import {
   View,
 } from 'react-native';
 
+import { defaultLanguage } from '../config/brand';
+import { LanguageSelector } from '../components/LanguageSelector';
 import { analyzeImage, lookupBarcode, ScanPayload, submitScanFeedback } from '../services/api';
+import { getVoiceMessage } from '../services/i18n';
 import { Condition, ScanResult } from '../types';
 
 const conditionColor: Record<Condition, string> = {
@@ -37,13 +39,6 @@ const conditionMessage: Record<Condition, string> = {
   near_expiry: 'Near expiry – Inspect carefully',
   suspicious: 'Possible label or expiry-date tampering detected. Packaging damage or contamination detected.',
   expired: 'Expired – Do not consume',
-};
-
-const spokenMessage: Record<Condition, string> = {
-  fresh: 'Inspection result: Fresh. Safe to consume.',
-  near_expiry: 'Inspection result: Near expiry. Inspect carefully before use.',
-  suspicious: 'Inspection result: Suspicious. Possible label or expiry-date tampering detected, or packaging damage or contamination.',
-  expired: 'Inspection result: Expired. Do not consume.',
 };
 
 function formatDate(iso?: string): string {
@@ -82,6 +77,7 @@ export default function ScanScreen() {
   const [overrideCondition, setOverrideCondition] = useState<Condition>('fresh');
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideNotes, setOverrideNotes] = useState('');
+  const [language, setLanguage] = useState(defaultLanguage);
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -99,7 +95,14 @@ export default function ScanScreen() {
       setExpiryDate(result.expiry_date ? formatDate(result.expiry_date) : expiryDate);
 
       const message = getResultMessage(result);
-      Speech.speak(message, { language: 'en' });
+      const voiceText = getVoiceMessage(result.condition, language);
+      // Use expo-speech directly with the selected BCP-47 locale.
+      const SpeechModule = require('expo-speech');
+      SpeechModule.speak(voiceText, {
+        language: language === 'en' ? 'en-ZA' : language,
+        pitch: 1,
+        rate: 0.95,
+      });
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,6 +286,7 @@ export default function ScanScreen() {
   return (
     <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
       <Text style={styles.heading}>Scan a consumable product</Text>
+      <LanguageSelector selected={language} onSelect={setLanguage} />
       <CameraView
         ref={cameraRef}
         style={styles.camera}
@@ -395,7 +399,13 @@ export default function ScanScreen() {
           {result.packaging_condition ? (
             <Text style={styles.detail}>Packaging condition: {result.packaging_condition}</Text>
           ) : null}
-          <Text style={styles.detail}>Confidence: {(result.confidence * 100).toFixed(1)}%</Text>
+          <Text style={styles.detail}>AI confidence: {(result.confidence * 100).toFixed(1)}%</Text>
+          {typeof result.label_confidence === 'number' && (
+            <Text style={styles.detail}>Label OCR confidence: {(result.label_confidence * 100).toFixed(0)}%</Text>
+          )}
+          {result.detected_fields && result.detected_fields.length > 0 && (
+            <Text style={styles.detail}>Auto-detected fields: {result.detected_fields.join(', ')}</Text>
+          )}
           <Text style={styles.subheading}>Why the AI decided this:</Text>
           {(result.findings || []).map((finding, idx) => (
             <Text key={idx} style={styles.finding}>

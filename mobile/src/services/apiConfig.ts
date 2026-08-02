@@ -5,13 +5,14 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { brand } from '../config/brand';
 import api from './api';
 
 declare const __DEV__: boolean;
 
 const API_URL_KEY = '@SmartScanner:apiBaseUrl';
 
-const PRODUCTION_DEFAULT = 'https://api.smartscanner.example.com';
+const PRODUCTION_DEFAULT = brand.defaultBackendUrl;
 const DEVELOPMENT_DEFAULT = 'http://10.0.2.2:8000';
 
 export const getApiBaseUrl = async (): Promise<string> => {

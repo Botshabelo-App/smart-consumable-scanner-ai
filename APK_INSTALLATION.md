@@ -2,21 +2,25 @@
 
 ## APK Details
 
-- **File:** `SmartConsumableScannerAI-RC1-Pilot-v9.apk`
-- **Version:** `0.1.8-RC1`
+- **File:** `SmartConsumableScannerAI-RC1-Pilot-v10.apk`
+- **Version:** `0.1.9-RC1`
 - **Package:** `com.smartscanner.ai`
-- **Size:** ~109 MB
-- **SHA-256:** `2b68fcfe5329a0da0a3300bf22b8054df96763c0a940664a0855d9d14a3a90ba`
+- **Size:** ~110 MB
+- **SHA-256:** `4919609367899572230318ea851ec3970804609436499d95278f3efac7f5b7be`
 - **Signed:** Yes, with a self-signed RC1 pilot keystore (v2 APK signature scheme)
 - **Status:** Release Candidate 1 — for private pilot evaluation only. Not for Google Play Store or public distribution.
 
-## What's New in v9
+## What's New in v10
 
+- **Final enterprise branding:** new app icon, splash screen, adaptive icon, and full horizontal logo on the login screen.
+- **Modular branding configuration:** all colours, app name/tagline, and default backend URL are centralised in `mobile/src/config/brand.ts` so organisations can rebrand without touching core screens.
+- **Multi-language voice guidance:** choose English, isiZulu, isiXhosa, Afrikaans, or Sesotho for spoken inspection results.
+- **Per-field confidence badges:** the result card now shows AI confidence, label OCR confidence, and the list of auto-detected fields.
+- **Improved offline mode:** scans queued offline are encrypted locally (file path + metadata) and automatically synchronised when the app starts and the network is available.
+- **Regulatory-ready PDF reports:** generated PDFs include inspector name, GPS coordinates, timestamps, evidence photo, brand, manufacturing and expiry dates, batch/lot, barcode, packaging condition, AI confidence, and a digital-signature placeholder.
 - **Automatic packaging detection:** the camera scan auto-detects barcode/QR codes and uses OCR to extract product name, brand, batch/lot number, manufacturing date, and expiry date whenever they are visible.
-- **Improved OCR preprocessing:** auto-contrast, sharpening, denoising, and upscaling for curved, reflective, damaged, and low-light labels.
 - **Packaging defect detection:** the AI flags missing labels, label replacement/expiry-date tampering, barcode/product-name mismatches, and damaged or contaminated packaging.
-- **Brand and packaging-condition fields:** added to the auto-filled form and the result card.
-- **Spoken inspection result:** the AI speaks the exact result message out loud.
+- **Spoken inspection result:** the AI speaks the exact result message out loud in the selected language.
 - **Visual inspection messages:** the result card shows the wording you requested:
   - Fresh – Safe to consume
   - Near expiry – Inspect carefully
@@ -36,7 +40,7 @@
 ## First Launch
 
 1. Open the **Smart Consumable Scanner AI** app.
-2. On the login screen, enter the current public pilot backend URL in the **Pilot server URL** field:
+2. The login screen is pre-filled with the current public pilot backend URL. If it differs, enter the URL in the **Pilot server URL** field:
    - **Current public pilot backend:** `https://social-dogs-create.loca.lt`
    - If running the backend on the same Wi-Fi network: `http://192.168.x.x:8000`
    - If testing with `adb reverse`: `http://localhost:8000`
@@ -80,10 +84,11 @@ For step-by-step test procedures, product categories, success criteria, and data
 
 Final branding is included in the app:
 
-- App icon
-- Android adaptive icon
-- Splash screen
+- App icon (`mobile/assets/icon.png`)
+- Android adaptive icon (`mobile/assets/adaptive-icon.png`)
+- Splash screen (`mobile/assets/splash.png`)
 - Full horizontal logo (`mobile/assets/logo.png`)
+- Modular brand configuration (`mobile/src/config/brand.ts`)
 
 ## What to Test
 
@@ -93,13 +98,15 @@ Final branding is included in the app:
 - Reports (PDF / CSV / Excel generation)
 - Review workflow
 - Camera scanning, OCR, automatic field population, AI analysis, spoken results, and Accept/Override on real products
+- Voice language selector
+- Offline scan queue and background sync
 
 ## Important Notes
 
 - This build is **RC1 Pilot Test** only. Do not publish it or share it outside your pilot organisations.
 - The AI evaluates observable external characteristics from a smartphone camera. It cannot determine the internal condition of sealed or opaque products.
 - For best results, scan in good lighting, hold the phone steady, and keep the label 15–25 cm from the camera.
-- The default pilot server URL is a placeholder. You must set a real backend URL before logging in.
+- The default pilot server URL is the current public tunnel. If it expires, enter the new working backend URL before logging in.
 
 ## Support
 

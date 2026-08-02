@@ -259,12 +259,14 @@ async def analyze_image(
     db.commit()
     db.refresh(scan)
 
-    # Attach brand/packaging condition to the ORM for the response without adding DB columns.
+    # Attach extra fields to the ORM instance for the response without adding DB columns.
     # Pydantic reads these as attributes.
     brand = brand or scan_product_name
     packaging_condition = _packaging_condition_from_ai(ai_result)
     scan.brand = brand
     scan.packaging_condition = packaging_condition
+    scan.label_confidence = ocr.label_confidence
+    scan.detected_fields = ocr.fields
 
     log_event(
         action="scan_created",

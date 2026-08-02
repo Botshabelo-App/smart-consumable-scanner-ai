@@ -13,12 +13,14 @@ Test the following on at least **three different Android phones**:
 - OCR extraction of printed text
 - AI condition assessment
 - Spoken and visual inspection results
+- Multi-language voice guidance (English, isiZulu, isiXhosa, Afrikaans, Sesotho)
 - Dashboard, history, and report generation
-- Offline behaviour (optional but recommended)
+- Offline behaviour and automatic background sync
+- Enterprise branding and splash/logo appearance
 
 ## Test Environment
 
-- **APK:** latest signed RC1 Pilot build
+- **APK:** `SmartConsumableScannerAI-RC1-Pilot-v10.apk`
 - **Backend URL:** the public pilot URL supplied with the build
 - **Test account:** Moeketsi Daniel / `moeketsitsomodan@gmail.com` / `477SectionA`
 - **Lighting:** good, even indoor light; also test low-light with the phone torch

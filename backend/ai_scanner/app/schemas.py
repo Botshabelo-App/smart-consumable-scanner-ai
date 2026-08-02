@@ -134,6 +134,8 @@ class ScanRead(BaseModel):
     confidence: float
     packaging_type: Optional[str] = None
     packaging_condition: Optional[str] = None
+    label_confidence: Optional[float] = None
+    detected_fields: List[str] = []
     findings: List[str] = []
     expiry_risk: Optional[str] = None
     barcode_code: Optional[str] = None
@@ -160,6 +162,13 @@ class ScanRead(BaseModel):
     def _split_findings(cls, v):
         if isinstance(v, str):
             return [line for line in v.split("\n") if line]
+        return v or []
+
+    @field_validator("detected_fields", mode="before")
+    @classmethod
+    def _split_detected_fields(cls, v):
+        if isinstance(v, str):
+            return [line for line in v.split(",") if line]
         return v or []
 
     @field_validator("override_image_paths", mode="before")
