@@ -51,11 +51,24 @@ def _resolve_product_from_barcode(db: Session, code: str):
     return barcode
 
 
-def _discrepancy_reason(ai_condition: Condition, expiry_date: Optional[datetime]) -> Optional[str]:
+def _discrepancy_reason(
+    ai_condition: Condition,
+    expiry_date: Optional[datetime],
+    production_date: Optional[datetime],
+    raw_text: str = "",
+) -> Optional[str]:
     if expiry_date and expiry_date > datetime.utcnow() and ai_condition == Condition.EXPIRED:
         return "AI detected expired appearance but printed expiry date is in the future; flagged for review."
     if expiry_date and expiry_date <= datetime.utcnow() and ai_condition == Condition.FRESH:
         return "AI detected fresh appearance but printed expiry date has passed; flagged for review."
+    if production_date and expiry_date and production_date > expiry_date:
+        return "Production date printed after expiry date; possible label tampering."
+    if production_date and production_date > datetime.utcnow():
+        return "Production date is in the future; possible label tampering or reprinting."
+    if expiry_date and (expiry_date - datetime.utcnow()).days > 1825:
+        return "Printed expiry date is more than 5 years in the future; verify authenticity."
+    if raw_text and any(k in raw_text.lower() for k in ["relabel", "relabelled", "reprinted", "overprint", "sticker"]):
+        return "Label contains relabel/reprint indicators; inspect carefully for tampering."
     return None
 
 
@@ -150,6 +163,17 @@ def _enrich_findings(
             ai_result.condition = Condition.SUSPICIOUS
             ai_result.confidence = max(ai_result.confidence, 0.80)
 
+    if (not barcode_code and not ocr.raw_text) or len(ocr.raw_text.strip()) < 10:
+        findings.append("No barcode or readable label detected — possible missing label or packaging damage.")
+
+    findings_text = " ".join(findings).lower()
+    damage_keywords = ["tear", "hole", "dent", "swelling", "leak", "crack", "rupture", "puncture", "broken seal"]
+    contamination_keywords = ["mould", "mold", "discolouration", "discoloration", "fungus", "slime", "off smell"]
+    if any(k in findings_text for k in damage_keywords):
+        findings.append("Packaging damage detected.")
+    if any(k in findings_text for k in contamination_keywords):
+        findings.append("Possible contamination detected.")
+
     packaging_condition = _packaging_condition_from_ai(ai_result)
     findings.append(f"Packaging condition: {packaging_condition}")
 
@@ -222,7 +246,10 @@ async def analyze_image(
 
     # Prefer user/OCR-provided product name over AI-derived one, since packaging text is authoritative.
     scan_product_name = product_name or ai_result.product_name or (product.name if product else None)
-    discrepancy_reason = _discrepancy_reason(ai_result.condition, expiry_date or (barcode_obj.expiry_date if barcode_obj else None))
+    ocr_expiry = expiry_date or (barcode_obj.expiry_date if barcode_obj else None)
+    discrepancy_reason = _discrepancy_reason(
+        ai_result.condition, ocr_expiry, production_date, raw_text=ocr.raw_text
+    )
 
     scan = Scan(
         id=uuid.uuid4(),

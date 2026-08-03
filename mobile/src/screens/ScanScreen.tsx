@@ -171,7 +171,7 @@ export default function ScanScreen() {
   const takePicture = async () => {
     if (!cameraRef.current) return;
     try {
-      const picture = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      const picture = await cameraRef.current.takePictureAsync({ quality: 0.6, base64: false });
       if (picture?.uri) {
         setPhoto(picture.uri);
         setCaptures((prev) => [picture.uri, ...prev].slice(0, 5));

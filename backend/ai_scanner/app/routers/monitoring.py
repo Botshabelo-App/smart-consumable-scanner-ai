@@ -155,3 +155,22 @@ def record_device_metrics(
         details=str(payload),
     )
     return {"status": "recorded"}
+
+
+@router.post("/crashes")
+def record_crash(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user=Depends(require_user),
+):
+    """Receive client crash/error reports from pilot devices."""
+    from ai_scanner.app.services.audit import log_event
+
+    log_event(
+        action="client_crash",
+        user_id=user.id,
+        resource_type="mobile",
+        resource_id=str(payload.get("device_id", "unknown")),
+        details=str(payload),
+    )
+    return {"status": "recorded"}

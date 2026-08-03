@@ -11,8 +11,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
 import { ConnectivityProvider } from './src/context/ConnectivityContext';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import AppNavigator from './src/navigation/AppNavigator';
 import { syncOfflineScans } from './src/services/api';
+import { setupGlobalErrorHandler } from './src/services/crashLogger';
+
+setupGlobalErrorHandler();
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -28,12 +32,14 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <ConnectivityProvider>
-          <AuthProvider>
-            <StatusBar style="auto" />
-            <AppNavigator />
-          </AuthProvider>
-        </ConnectivityProvider>
+        <ErrorBoundary>
+          <ConnectivityProvider>
+            <AuthProvider>
+              <StatusBar style="auto" />
+              <AppNavigator />
+            </AuthProvider>
+          </ConnectivityProvider>
+        </ErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

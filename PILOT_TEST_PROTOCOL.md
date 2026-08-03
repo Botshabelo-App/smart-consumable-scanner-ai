@@ -6,7 +6,7 @@ This protocol describes how to validate the RC1 Pilot Build on real Android devi
 
 ## Scope
 
-Test the following on at least **three different Android phones**:
+Test the following on at least **five different Android phones** running Android 10, 12, 13, 14 and 15:
 
 - Camera capture and focus
 - Barcode/QR code scanning
@@ -20,34 +20,40 @@ Test the following on at least **three different Android phones**:
 
 ## Test Environment
 
-- **APK:** `SmartConsumableScannerAI-RC1-Pilot-v10.apk`
+- **APK:** `SmartConsumableScannerAI-RC1-Pilot-v10g.apk`
 - **Backend URL:** the public pilot URL supplied with the build
 - **Test account:** Moeketsi Daniel / `moeketsitsomodan@gmail.com` / `477SectionA`
 - **Lighting:** good, even indoor light; also test low-light with the phone torch
 
-## Device Requirements
+## Device Matrix
 
-Test on a mix of:
+| # | Device model | Android version | Camera quality | Budget/Mid/Flagship |
+|---|--------------|-----------------|----------------|---------------------|
+| 1 |              |                 |                |                     |
+| 2 |              |                 |                |                     |
+| 3 |              |                 |                |                     |
+| 4 |              |                 |                |                     |
+| 5 |              |                 |                |                     |
 
-- Budget Android (Android 10+)
-- Mid-range Android (Android 12+)
-- Flagship Android (Android 14+)
-- At least one device with a macro/close-focus camera
+Include at least one device with a macro/close-focus camera.
 
 ## Product Categories
 
-Test at least three items from each category:
+Test at least one item from each category, covering local South African products where possible:
 
-| Category | Examples |
-|----------|----------|
+| Category | Required examples |
+|----------|-------------------|
 | Meat | fresh beef, chicken pieces, sausages, mince |
 | Poultry | whole chicken, chicken fillets, marinated wings |
 | Fish | fresh whole fish, frozen fillets, smoked fish |
 | Dairy | milk, cheese, yoghurt, butter, cream |
 | Bakery | sliced bread, rolls, muffins, croissants |
-| Fresh produce | apples, bananas, tomatoes, lettuce, potatoes, onions |
+| Fruit | apples, bananas, oranges, grapes |
+| Vegetables | tomatoes, lettuce, potatoes, onions, spinach |
 | Canned food | canned beans, tuna, tomatoes, soup, vegetables |
-| Bottled drinks | bottled water, soft drinks, beer, wine, whisky, juice |
+| Bottled water | still and sparkling water |
+| Soft drinks | cola, juice, energy drinks |
+| Alcoholic drinks | beer, wine, whisky, brandy, spirits |
 | Packaged snacks | crisps, biscuits, nuts, chocolate |
 | Frozen | frozen vegetables, ice cream, frozen meals |
 | Baby/health | formula, supplements, medicines |
@@ -56,10 +62,10 @@ Test at least three items from each category:
 
 ### 1. Installation and Login
 
-1. Install the APK.
-2. Enter the pilot backend URL.
+1. Install the APK from the public download link.
+2. Wait for the app to display "Server online".
 3. Log in with the test account.
-4. Verify the dashboard loads.
+4. Verify the Dashboard loads and shows inspection stats.
 
 ### 2. Single Product Scan
 
@@ -86,12 +92,13 @@ For each product:
 |-------|---------------|
 | Product name extraction | Correct name filled automatically for ≥70% of products |
 | Brand extraction | Brand filled automatically for ≥60% of products |
-| Barcode scanning | 1D/2D codes read automatically for ≥80% of products |
+| Barcode/QR scanning | Codes read automatically for ≥80% of products |
 | Batch/Lot extraction | Batch or lot number read for ≥50% of labelled products |
 | Expiry date extraction | Correct expiry date read for ≥80% of labelled products |
 | Manufacturing date extraction | Correct date read when present for ≥60% of products |
 | AI condition | Spoken and visual result match the product condition |
 | Tampering flags | Suspicious results shown for future expiry dates on expired-looking products |
+| Counterfeit/Barcode mismatch | Flag raised when barcode lookup does not match label product name |
 | Damaged packaging | Condition marked suspicious when visible damage is present |
 | Curved/reflective labels | OCR still extracts key fields for ≥50% of curved/glossy labels |
 | Low-light scanning | With torch, key fields extracted for ≥50% of low-light captures |
@@ -103,7 +110,7 @@ For each product:
 2. Confirm totals and category breakdowns are correct.
 3. Open **History** and verify all scans are listed.
 4. Open **Reports**, select a scan, and generate **PDF**, **CSV**, and **Excel** reports.
-5. Verify the reports contain product name, condition, confidence, and findings.
+5. Verify the reports contain product name, brand, condition, confidence, batch, expiry, manufacturing date, packaging condition, findings, and inspector details.
 
 ### 5. Edge Cases
 
@@ -118,6 +125,7 @@ Test and record results for:
 - Barcode that does not match the product name (potential counterfeit)
 - Product with future expiry date but visibly spoiled
 - Product with past expiry date but visually normal
+- Offline scanning followed by reconnect and sync
 
 ## Data to Collect
 
@@ -135,7 +143,7 @@ For each scan, record:
 
 The build is considered **pilot-ready** when:
 
-- Login and navigation work on all test devices.
+- Login and navigation work on all five test devices.
 - Camera capture succeeds in ≥95% of attempts.
 - Auto-filled fields are correct in ≥70% of clear, well-lit captures.
 - AI condition matches expert inspection in ≥80% of cases.
