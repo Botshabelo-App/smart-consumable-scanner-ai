@@ -14,7 +14,7 @@ export const brand = {
   dangerColor: '#c62828',
   warningColor: '#ef6c00',
   lightBackground: '#f5f7fa',
-  defaultBackendUrl: 'https://smartscanner-pilot-backend.loca.lt',
+  defaultBackendUrl: 'https://injured-capabilities-edt-blocking.trycloudflare.com',
 };
 
 export const supportedLanguages: { code: string; name: string; voiceLocale: string }[] = [
