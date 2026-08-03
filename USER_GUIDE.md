@@ -3,12 +3,12 @@
 ## Download and install
 
 1. Open the pilot download page in Chrome on your Android phone.
-2. Tap **Download APK** (`SmartConsumableScannerAI-RC1-Pilot-v10c.apk`).
+2. Tap **Download APK** (`SmartConsumableScannerAI-RC1-Pilot-v10d.apk`).
 3. Open the downloaded file and tap **Install**.
 4. If prompted, allow installation from Chrome / unknown sources.
 
 - Version: `0.1.9-RC1`
-- SHA-256: `55758afff8a83952100aa03486f0c625f8679017d8fe31793d8e525483f9ae51`
+- SHA-256: `6a9ff38939823c42f843f2ef7b207ffcaf4a34139a3b5a2af4f0d3dee9b06a89`
 
 ## Log in
 
@@ -20,7 +20,7 @@
    - **Role:** Inspector
 4. Tap **LOG IN**.
 
-(If the server URL field is ever empty, enter `https://injured-capabilities-edt-blocking.trycloudflare.com`.)
+(If the server URL field is ever empty, enter `https://street-compatibility-known-projection.trycloudflare.com`.)
 
 ## Scan a product
 
