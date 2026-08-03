@@ -24,4 +24,11 @@ def _build_classifier():
         return ConsumableClassifier()
 
 
-classifier = _build_classifier()
+_classifier_instance = None
+
+
+def get_classifier():
+    global _classifier_instance
+    if _classifier_instance is None:
+        _classifier_instance = _build_classifier()
+    return _classifier_instance

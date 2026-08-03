@@ -23,10 +23,6 @@ async def lifespan(app: FastAPI):
     # Initialise backend database tables.
     from ai_scanner.app.db.database import Base, engine
     Base.metadata.create_all(bind=engine)
-    # Warm up AI classifier.
-    from ai_service.app.models.classifier import classifier
-    if hasattr(classifier, "warm_up"):
-        classifier.warm_up()
     yield
 
 
