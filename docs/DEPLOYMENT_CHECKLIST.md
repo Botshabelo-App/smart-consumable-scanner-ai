@@ -2,6 +2,28 @@
 
 **Status:** Engineering Complete — Release Candidate 1 (RC1) — Pilot Evaluation and Maintenance Mode. Use this checklist before deploying to a pilot environment; complete the final `RELEASE_CHECKLIST.md` before tagging `v1.0.0`.
 
+## Pilot / temporary backend
+
+- The RC1 private pilot currently runs through a Cloudflare quick tunnel started with `cloudflared tunnel --url http://localhost:8003` (the local backend listens on port 8003).
+- This URL is temporary and changes whenever the tunnel process restarts; it is suitable only for private pilot testing, not production.
+- To keep the tunnel stable, run `cloudflared` under a process supervisor (e.g., `systemd`, `pm2`, or `tmux`) and monitor `/health` on the public URL.
+
+## Permanent deployment options
+
+When the pilot is successful, choose one of these managed platforms and deploy the combined backend (`main.py`) plus a managed PostgreSQL database:
+
+- **Render** — a `render.yaml` Blueprint is included in the repo root. Add a payment method in the Render dashboard, then run `render blueprint apply` to create a Docker web service and a `basic_256mb` Postgres database. The Blueprint uses `DATABASE_URL` from the database and auto-generates `SECRET_KEY`.
+- **Railway** — create a project from the GitHub repo, add a Postgres service, and set the environment variables `DATABASE_URL`, `AI_SERVICE_URL`, `SECRET_KEY`, and `CORS_ORIGINS`.
+- **Fly.io** — use `fly launch` with the provided `Dockerfile` and attach a Fly Postgres service. The built-in `deploy backend` tool was not usable in this environment, so manual `flyctl` deployment is recommended.
+- **AWS / Azure / GCP** — deploy the Docker image to an EC2/VM or container service (ECS, App Service, Cloud Run) with a managed Postgres instance and a load balancer handling TLS.
+
+For all options:
+
+- Use the combined `Dockerfile` in the repo root, which bundles the FastAPI backend and the AI inference service in one container.
+- Set `DATABASE_URL` to a persistent Postgres URL (not SQLite).
+- Generate a strong `SECRET_KEY` and set `CORS_ORIGINS` to the public origin(s) of the mobile app.
+- Build the mobile app with the permanent backend URL in `mobile/src/config/brand.ts` and upload the rebuilt APK to the download page.
+
 ## Infrastructure
 
 - [ ] Provision Kubernetes cluster or Docker host(s).
