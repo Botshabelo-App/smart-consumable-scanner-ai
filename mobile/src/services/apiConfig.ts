@@ -30,21 +30,32 @@ export const setApiBaseUrl = async (url: string): Promise<void> => {
 };
 
 export const configureApiBaseUrl = async (): Promise<string> => {
-  let url: string | null = null;
+  const candidates: (string | null)[] = [
+    // 1. Try the current remote config URL first so the backend can move
+    //    without a new APK.
+    await fetchRemoteBackendUrl(),
+    // 2. Fall back to the last known working URL.
+    await getApiBaseUrl(),
+    // 3. Fall back to the built-in default.
+    PRODUCTION_DEFAULT,
+  ];
 
-  // 1. Try to fetch the current backend URL from the remote config file.
-  //    This allows the pilot backend to move (e.g. new Cloudflare tunnel)
-  //    without requiring a new APK.
-  url = await fetchRemoteBackendUrl();
-  if (url) {
-    await setApiBaseUrl(url);
-    return url;
+  for (const candidate of candidates) {
+    if (!candidate || candidate.includes('example.com')) continue;
+    const normalized = candidate.trim().replace(/\/$/, '');
+    try {
+      api.defaults.baseURL = normalized;
+      await api.get('/health');
+      await AsyncStorage.setItem(API_URL_KEY, normalized);
+      return normalized;
+    } catch {
+      // Try the next candidate.
+    }
   }
 
-  // 2. Fall back to the last known URL.
-  url = await getApiBaseUrl();
-  await setApiBaseUrl(url);
-  return url;
+  // If nothing works, keep the built-in default so the user can change it manually.
+  await setApiBaseUrl(PRODUCTION_DEFAULT);
+  return PRODUCTION_DEFAULT;
 };
 
 export const isDefaultPlaceholderUrl = (url: string): boolean => {
