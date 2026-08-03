@@ -14,7 +14,7 @@ export const brand = {
   dangerColor: '#c62828',
   warningColor: '#ef6c00',
   lightBackground: '#f5f7fa',
-  defaultBackendUrl: 'https://controversial-made-grant-altered.trycloudflare.com',
+  defaultBackendUrl: 'https://big-boxes-write.loca.lt',
 };
 
 export const supportedLanguages: { code: string; name: string; voiceLocale: string }[] = [

@@ -16,6 +16,9 @@ const API_BASE_URL = __DEV__ ? 'http://10.0.2.2:8000' : 'https://api.smartscanne
 const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
+  headers: {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 14; SmartScanner) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+  },
 });
 
 api.interceptors.request.use(async (config) => {

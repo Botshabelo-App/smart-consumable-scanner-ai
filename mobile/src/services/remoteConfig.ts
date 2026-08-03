@@ -9,7 +9,7 @@ const BACKEND_URL_SOURCE =
 export async function fetchRemoteBackendUrl(): Promise<string | null> {
   try {
     const cacheBuster = `?t=${Date.now()}`;
-    const response = await fetch(BACKEND_URL_SOURCE + cacheBuster, { cache: 'no-cache' });
+    const response = await fetch(BACKEND_URL_SOURCE + cacheBuster);
     if (!response.ok) return null;
     const text = (await response.text()).trim();
     if (text.startsWith('http')) return text;
