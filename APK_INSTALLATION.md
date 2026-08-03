@@ -2,11 +2,11 @@
 
 ## APK Details
 
-- **File:** `SmartConsumableScannerAI-RC1-Pilot-v10a.apk`
+- **File:** `SmartConsumableScannerAI-RC1-Pilot-v10c.apk`
 - **Version:** `0.1.9-RC1`
 - **Package:** `com.smartscanner.ai`
 - **Size:** ~110 MB
-- **SHA-256:** `6419a6b5a4c2dbe1da70878a73cf73c2378887ef46766956e28f19c7e9161b05`
+- **SHA-256:** `55758afff8a83952100aa03486f0c625f8679017d8fe31793d8e525483f9ae51`
 - **Signed:** Yes, with a self-signed RC1 pilot keystore (v2 APK signature scheme)
 - **Status:** Release Candidate 1 — for private pilot evaluation only. Not for Google Play Store or public distribution.
 
@@ -41,7 +41,7 @@
 
 1. Open the **Smart Consumable Scanner AI** app.
 2. The login screen is pre-filled with the current public pilot backend URL. If it differs, enter the URL in the **Pilot server URL** field:
-   - **Current public pilot backend:** `https://smartscanner-ai-rc1-pilot.loca.lt`
+   - **Current public pilot backend:** `https://injured-capabilities-edt-blocking.trycloudflare.com`
    - If running the backend on the same Wi-Fi network: `http://192.168.x.x:8000`
    - If testing with `adb reverse`: `http://localhost:8000`
    - A self-hosted backend: `https://api.yourdomain.com`
