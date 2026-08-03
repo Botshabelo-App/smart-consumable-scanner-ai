@@ -87,12 +87,12 @@
     <div class="card" style="text-align:center;">
       <h2>Download the pilot APK</h2>
       <p>Install this APK on an Android phone to start private pilot testing.</p>
-      <a class="btn" href="SmartConsumableScannerAI-RC1-Pilot-v10d.apk" download>Download APK</a>
+      <a class="btn" href="SmartConsumableScannerAI-RC1-Pilot-v10f.apk" download>Download APK</a>
       <div class="details">
         Version: <strong>0.1.9-RC1</strong> &nbsp;|&nbsp;
         Size: ~110 MB &nbsp;|&nbsp;
         Package: <code>com.smartscanner.ai</code><br />
-        SHA-256: <code>6a9ff38939823c42f843f2ef7b207ffcaf4a34139a3b5a2af4f0d3dee9b06a89</code>
+        SHA-256: <code>85dfd28a0ede48521feabc43bbefb5b58e29c0e1310e548058bc39350bb993da</code>
       </div>
     </div>
 
@@ -115,7 +115,7 @@
         <li><strong>Password:</strong> <code>477SectionA</code></li>
         <li><strong>Role:</strong> Inspector</li>
       </ul>
-      <p class="details">If the server URL field is ever empty, enter: <code id="server-url">https://street-compatibility-known-projection.trycloudflare.com</code></p>
+      <p class="details">If the server URL field is ever empty, enter: <code id="server-url">...</code></p>
     </div>
 
     <div class="card">
@@ -154,5 +154,11 @@
       Not for public distribution or the Google Play Store.
     </div>
   </div>
+  <script>
+    // Show the current backend/download URL dynamically so it stays correct
+    // even if the public tunnel changes.
+    var serverEl = document.getElementById('server-url');
+    if (serverEl) { serverEl.textContent = window.location.origin + '/download/'; }
+  </script>
 </body>
 </html>

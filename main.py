@@ -8,6 +8,7 @@ import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 # Ensure backend and ai-service packages are importable.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,4 +36,7 @@ app = FastAPI(
 
 # AI inference mounted under /ai so the backend can call it internally.
 app.mount("/ai", ai_app)
+# Pilot download page and APK served under /download so the same public URL
+# works for the mobile app and for downloading the APK.
+app.mount("/download", StaticFiles(directory="pilot-site", html=True), name="static")
 app.mount("/", backend_app)

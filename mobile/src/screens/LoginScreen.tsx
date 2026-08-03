@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, Image, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { brand } from '../config/brand';
+import { useConnectivity } from '../context/ConnectivityContext';
 import { t } from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import api, { login, register } from '../services/api';
@@ -21,10 +22,11 @@ export default function LoginScreen() {
   const [apiUrl, setApiUrl] = useState('');
   const [error, setError] = useState('');
   const { setIsLoggedIn } = useAuth();
+  const { isOnline, isChecking, serverUrl, retry } = useConnectivity();
 
   useEffect(() => {
     getApiBaseUrl().then((url) => setApiUrl(url));
-  }, []);
+  }, [serverUrl]);
 
   const submit = async () => {
     try {
@@ -47,10 +49,17 @@ export default function LoginScreen() {
     }
   };
 
+  const statusText = isChecking
+    ? 'Checking server...'
+    : isOnline
+      ? 'Server online'
+      : 'Server unavailable. Reconnecting...';
+
   return (
     <View style={styles.container}>
       <Image source={require('../../assets/logo.png')} style={styles.logo} resizeMode="contain" />
       <Text style={styles.title}>{t('appName')}</Text>
+      <Text style={[styles.status, isOnline ? styles.online : styles.offline]}>{statusText}</Text>
       <TextInput
         style={styles.input}
         placeholder={t('serverUrl')}
@@ -79,7 +88,14 @@ export default function LoginScreen() {
         onChangeText={setPassword}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button title={mode === 'login' ? t('login') : t('register')} onPress={submit} />
+      <Button title="Refresh connection" onPress={retry} />
+      <View style={styles.loginButton}>
+        <Button
+          title={mode === 'login' ? t('login') : t('register')}
+          onPress={submit}
+          disabled={!isOnline}
+        />
+      </View>
       <View style={styles.toggle}>
         <Button
           title={mode === 'login' ? t('register') : t('login')}
@@ -106,9 +122,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 8,
     textAlign: 'center',
     color: brand.primaryColor,
+  },
+  status: {
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 14,
+  },
+  online: {
+    color: '#2e7d32',
+  },
+  offline: {
+    color: '#c62828',
   },
   input: {
     borderWidth: 1,
@@ -120,6 +147,9 @@ const styles = StyleSheet.create({
   error: {
     color: 'red',
     marginBottom: 12,
+  },
+  loginButton: {
+    marginTop: 12,
   },
   toggle: {
     marginTop: 12,

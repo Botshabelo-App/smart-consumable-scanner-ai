@@ -3,12 +3,12 @@
 ## Download and install
 
 1. Open the pilot download page in Chrome on your Android phone.
-2. Tap **Download APK** (`SmartConsumableScannerAI-RC1-Pilot-v10d.apk`).
+2. Tap **Download APK** (`SmartConsumableScannerAI-RC1-Pilot-v10f.apk`).
 3. Open the downloaded file and tap **Install**.
 4. If prompted, allow installation from Chrome / unknown sources.
 
 - Version: `0.1.9-RC1`
-- SHA-256: `6a9ff38939823c42f843f2ef7b207ffcaf4a34139a3b5a2af4f0d3dee9b06a89`
+- SHA-256: `85dfd28a0ede48521feabc43bbefb5b58e29c0e1310e548058bc39350bb993da`
 
 ## Log in
 

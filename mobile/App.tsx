@@ -10,17 +10,15 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from './src/context/AuthContext';
+import { ConnectivityProvider } from './src/context/ConnectivityContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { syncOfflineScans } from './src/services/api';
-import { configureApiBaseUrl } from './src/services/apiConfig';
 
 export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    configureApiBaseUrl()
-      .finally(() => syncOfflineScans())
-      .finally(() => setReady(true));
+    syncOfflineScans().finally(() => setReady(true));
   }, []);
 
   if (!ready) {
@@ -30,10 +28,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <StatusBar style="auto" />
-          <AppNavigator />
-        </AuthProvider>
+        <ConnectivityProvider>
+          <AuthProvider>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </AuthProvider>
+        </ConnectivityProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

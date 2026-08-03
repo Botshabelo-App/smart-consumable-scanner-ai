@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { brand } from '../config/brand';
 import api from './api';
+import { fetchRemoteBackendUrl } from './remoteConfig';
 
 declare const __DEV__: boolean;
 
@@ -28,9 +29,22 @@ export const setApiBaseUrl = async (url: string): Promise<void> => {
   api.defaults.baseURL = normalized;
 };
 
-export const configureApiBaseUrl = async (): Promise<void> => {
-  const url = await getApiBaseUrl();
-  api.defaults.baseURL = url;
+export const configureApiBaseUrl = async (): Promise<string> => {
+  let url: string | null = null;
+
+  // 1. Try to fetch the current backend URL from the remote config file.
+  //    This allows the pilot backend to move (e.g. new Cloudflare tunnel)
+  //    without requiring a new APK.
+  url = await fetchRemoteBackendUrl();
+  if (url) {
+    await setApiBaseUrl(url);
+    return url;
+  }
+
+  // 2. Fall back to the last known URL.
+  url = await getApiBaseUrl();
+  await setApiBaseUrl(url);
+  return url;
 };
 
 export const isDefaultPlaceholderUrl = (url: string): boolean => {
