@@ -14,7 +14,7 @@ export const brand = {
   dangerColor: '#c62828',
   warningColor: '#ef6c00',
   lightBackground: '#f5f7fa',
-  defaultBackendUrl: 'https://sorted-money-gaming-findings.trycloudflare.com',
+  defaultBackendUrl: 'https://proprietary-answers-shanghai-mile.trycloudflare.com',
 };
 
 export const supportedLanguages: { code: string; name: string; voiceLocale: string }[] = [
