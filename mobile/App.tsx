@@ -13,6 +13,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { ConnectivityProvider } from './src/context/ConnectivityContext';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import AppNavigator from './src/navigation/AppNavigator';
+import { configureApiBaseUrl } from './src/services/apiConfig';
 import { syncOfflineScans } from './src/services/api';
 import { setupGlobalErrorHandler } from './src/services/crashLogger';
 
@@ -22,7 +23,10 @@ export default function App() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    syncOfflineScans().finally(() => setReady(true));
+    configureApiBaseUrl()
+      .catch(() => {})
+      .finally(() => syncOfflineScans())
+      .finally(() => setReady(true));
   }, []);
 
   if (!ready) {

@@ -42,6 +42,7 @@ export function ConnectivityProvider({ children }: { children: React.ReactNode }
   };
 
   const refresh = async () => {
+    setIsChecking(true);
     // Pull the latest backend URL from remote config before checking.
     const url = await configureApiBaseUrl().catch(() => '');
     setServerUrl(url || '');
@@ -65,10 +66,20 @@ export function ConnectivityProvider({ children }: { children: React.ReactNode }
     return () => clearInterval(interval);
   }, []);
 
+  if (isChecking) {
+    return (
+      <View style={styles.overlay} pointerEvents="auto">
+        <ActivityIndicator size="large" color="#0d5aa3" />
+        <Text style={styles.text}>Connecting to server...</Text>
+        {!!serverUrl && <Text style={styles.url}>{serverUrl}</Text>}
+      </View>
+    );
+  }
+
   return (
     <ConnectivityContext.Provider value={{ isOnline, isChecking, serverUrl, retry: refresh }}>
       {children}
-      {!isOnline && !isChecking && (
+      {!isOnline && (
         <View style={styles.overlay} pointerEvents="auto">
           <ActivityIndicator size="large" color="#0d5aa3" />
           <Text style={styles.text}>Server unavailable. Reconnecting...</Text>
