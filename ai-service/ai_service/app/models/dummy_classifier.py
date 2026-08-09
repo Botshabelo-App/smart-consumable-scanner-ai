@@ -40,6 +40,12 @@ class ConsumableClassifier:
         condition, confidence = self._classify(brightness, saturation)
         category = self._infer_category(product_hint)
 
+        findings.append("Fallback AI only — image statistics cannot prove safety or identify the product reliably.")
+        if not product_hint:
+            findings.append("No barcode/OCR product hint available; visual-only assessment.")
+        else:
+            findings.append("Product hint provided; verify against printed packaging and barcode.")
+
         return ScanResult(
             condition=condition,
             confidence=round(confidence, 3),
@@ -66,17 +72,87 @@ class ConsumableClassifier:
         mapping = {
             "milk": ProductCategory.DAIRY,
             "cheese": ProductCategory.DAIRY,
+            "yoghurt": ProductCategory.DAIRY,
             "yogurt": ProductCategory.DAIRY,
+            "butter": ProductCategory.DAIRY,
             "beef": ProductCategory.MEAT,
+            "steak": ProductCategory.MEAT,
+            "mince": ProductCategory.MEAT,
+            "sausage": ProductCategory.MEAT,
             "chicken": ProductCategory.MEAT,
             "pork": ProductCategory.MEAT,
+            "lamb": ProductCategory.MEAT,
             "fish": ProductCategory.SEAFOOD,
+            "salmon": ProductCategory.SEAFOOD,
+            "shrimp": ProductCategory.SEAFOOD,
+            "prawn": ProductCategory.SEAFOOD,
             "apple": ProductCategory.PRODUCE,
+            "banana": ProductCategory.PRODUCE,
+            "orange": ProductCategory.PRODUCE,
+            "grape": ProductCategory.PRODUCE,
+            "tomato": ProductCategory.PRODUCE,
+            "lettuce": ProductCategory.PRODUCE,
+            "potato": ProductCategory.PRODUCE,
+            "onion": ProductCategory.PRODUCE,
+            "spinach": ProductCategory.PRODUCE,
             "bread": ProductCategory.FOOD,
+            "egg": ProductCategory.FOOD,
             "water": ProductCategory.BEVERAGE,
             "juice": ProductCategory.BEVERAGE,
+            "soft drink": ProductCategory.BEVERAGE,
+            "cooldrink": ProductCategory.BEVERAGE,
+            "beer": ProductCategory.BEVERAGE,
+            "wine": ProductCategory.BEVERAGE,
+            "whiskey": ProductCategory.BEVERAGE,
+            "whisky": ProductCategory.BEVERAGE,
+            "brandy": ProductCategory.BEVERAGE,
+            "vodka": ProductCategory.BEVERAGE,
+            "gin": ProductCategory.BEVERAGE,
+            "spirit": ProductCategory.BEVERAGE,
+            "energy drink": ProductCategory.BEVERAGE,
+            "coffee": ProductCategory.BEVERAGE,
+            "tea": ProductCategory.BEVERAGE,
+            "canned": ProductCategory.PACKAGED,
+            "biscuit": ProductCategory.PACKAGED,
+            "cracker": ProductCategory.PACKAGED,
+            "chocolate": ProductCategory.PACKAGED,
+            "chip": ProductCategory.PACKAGED,
+            "crisp": ProductCategory.PACKAGED,
+            "snack": ProductCategory.PACKAGED,
+            "sauce": ProductCategory.PACKAGED,
+            "soup": ProductCategory.PACKAGED,
+            "condiment": ProductCategory.PACKAGED,
+            "spread": ProductCategory.PACKAGED,
+            "jam": ProductCategory.PACKAGED,
+            "honey": ProductCategory.PACKAGED,
+            "peanut butter": ProductCategory.PACKAGED,
+            "mayonnaise": ProductCategory.PACKAGED,
+            "ketchup": ProductCategory.PACKAGED,
+            "mustard": ProductCategory.PACKAGED,
+            "vinegar": ProductCategory.PACKAGED,
+            "frozen": ProductCategory.FROZEN,
+            "ice cream": ProductCategory.FROZEN,
+            "pasta": ProductCategory.DRY,
+            "noodle": ProductCategory.DRY,
+            "cereal": ProductCategory.DRY,
+            "flour": ProductCategory.DRY,
+            "sugar": ProductCategory.DRY,
+            "rice": ProductCategory.DRY,
+            "spice": ProductCategory.DRY,
+            "seasoning": ProductCategory.DRY,
+            "oil": ProductCategory.OTHER,
+            "supplement": ProductCategory.OTHER,
+            "medicine": ProductCategory.OTHER,
+            "formula": ProductCategory.PACKAGED,
         }
         for key, value in mapping.items():
             if key in hint_lower:
                 return value
+        # Any non-empty hint with packaging-related words is treated as a packaged consumable.
+        packaged_keywords = [
+            "packet", "box", "carton", "bottle", "can", "tin", "jar", "bag", "pouch",
+            "sachet", "wrapper", "container", "tray", "tube", "pack", "packaging",
+        ]
+        if any(k in hint_lower for k in packaged_keywords):
+            return ProductCategory.PACKAGED
         return None

@@ -20,7 +20,7 @@ Test the following on at least **five different Android phones** running Android
 
 ## Test Environment
 
-- **APK:** `SmartConsumableScannerAI-RC1-Pilot-v10g.apk`
+- **APK:** `SmartConsumableScannerAI-RC1-Pilot-v10l.apk` (locked baseline)
 - **Backend URL:** the public pilot URL supplied with the build
 - **Test account:** Moeketsi Daniel / `moeketsitsomodan@gmail.com` / `477SectionA`
 - **Lighting:** good, even indoor light; also test low-light with the phone torch
@@ -39,13 +39,13 @@ Include at least one device with a macro/close-focus camera.
 
 ## Product Categories
 
-Test at least one item from each category, covering local South African products where possible:
+Test at least one item from every category below, covering local South African products where possible. The scanner must support **any packaged consumable with a barcode or QR code**; these categories are the minimum validation set.
 
 | Category | Required examples |
 |----------|-------------------|
 | Meat | fresh beef, chicken pieces, sausages, mince |
 | Poultry | whole chicken, chicken fillets, marinated wings |
-| Fish | fresh whole fish, frozen fillets, smoked fish |
+| Fish/seafood | fresh whole fish, frozen fillets, smoked fish, canned tuna |
 | Dairy | milk, cheese, yoghurt, butter, cream |
 | Bakery | sliced bread, rolls, muffins, croissants |
 | Fruit | apples, bananas, oranges, grapes |
@@ -55,7 +55,7 @@ Test at least one item from each category, covering local South African products
 | Soft drinks | cola, juice, energy drinks |
 | Alcoholic drinks | beer, wine, whisky, brandy, spirits |
 | Packaged snacks | crisps, biscuits, nuts, chocolate |
-| Frozen | frozen vegetables, ice cream, frozen meals |
+| Frozen | frozen vegetables, ice cream, frozen meals, frozen fish/meat |
 | Baby/health | formula, supplements, medicines |
 
 ## Test Procedure
@@ -74,19 +74,29 @@ For each product:
 1. Tap **Scan**.
 2. Hold the phone 15–25 cm from the label.
 3. Ensure the label is in focus and well-lit.
-4. Tap **Capture**.
+4. Tap **Capture** (or wait for continuous capture if enabled).
 5. Wait for the AI result.
-6. Verify the app auto-fills:
+6. Verify the app auto-fills or allows manual entry of:
    - Product name
    - Brand
-   - Barcode (if visible)
+   - Barcode/QR code
    - Batch/Lot number
-   - Manufacturing date (if visible)
-   - Expiry date (if visible)
+   - Manufacturing date
+   - Expiry date
 7. Check the spoken result and the visual result card.
 8. Tap **Accept AI** if correct or **Override AI** and note why.
 
-### 3. Specific Checks
+### 3. Barcode/QR Behaviour
+
+| Check | Pass Criteria |
+|-------|---------------|
+| Barcode present and known | Product name/brand auto-filled from lookup; AI result still requires visual/OCR confirmation |
+| Barcode present and unknown | Scan continues with OCR and visual inspection; product is not rejected |
+| Barcode unreadable | Scan continues with OCR and visual inspection |
+| Barcode/QR conflicts with printed text | App flags "possible barcode/product mismatch" |
+| Barcode only (no visible product) | App warns "needs manual inspection" |
+
+### 4. Specific Checks
 
 | Check | Pass Criteria |
 |-------|---------------|
@@ -103,8 +113,9 @@ For each product:
 | Curved/reflective labels | OCR still extracts key fields for ≥50% of curved/glossy labels |
 | Low-light scanning | With torch, key fields extracted for ≥50% of low-light captures |
 | Focus stability | No crashes or frozen camera across all test devices |
+| Cautious AI wording | System uses "possible", "suspicious", or "needs manual inspection" when evidence is insufficient |
 
-### 4. Dashboard, History, and Reports
+### 5. Dashboard, History, and Reports
 
 1. After 5–10 scans, open the **Dashboard**.
 2. Confirm totals and category breakdowns are correct.
@@ -112,7 +123,7 @@ For each product:
 4. Open **Reports**, select a scan, and generate **PDF**, **CSV**, and **Excel** reports.
 5. Verify the reports contain product name, brand, condition, confidence, batch, expiry, manufacturing date, packaging condition, findings, and inspector details.
 
-### 5. Edge Cases
+### 6. Edge Cases
 
 Test and record results for:
 
@@ -125,6 +136,8 @@ Test and record results for:
 - Barcode that does not match the product name (potential counterfeit)
 - Product with future expiry date but visibly spoiled
 - Product with past expiry date but visually normal
+- Barcode/QR present but not in the local product database
+- No barcode/QR visible on the product
 - Offline scanning followed by reconnect and sync
 
 ## Data to Collect
@@ -147,6 +160,7 @@ The build is considered **pilot-ready** when:
 - Camera capture succeeds in ≥95% of attempts.
 - Auto-filled fields are correct in ≥70% of clear, well-lit captures.
 - AI condition matches expert inspection in ≥80% of cases.
+- The scanner continues and provides a result when a barcode/QR is unknown or missing.
 - No crashes during a full 30-minute test session per device.
 - Reports generate successfully for all supported formats.
 
@@ -161,4 +175,4 @@ If a test fails:
 
 ## Important Safety Note
 
-The AI evaluates **observable external characteristics** captured by a standard smartphone camera. It cannot determine the internal condition of sealed, opaque, or frozen products. Use the result as a screening aid, not a definitive food-safety verdict.
+The AI evaluates **observable external characteristics** captured by a standard smartphone camera. A barcode or QR code is **not proof** that food is safe. The physical product and printed information must still be inspected. The result is a screening aid, not a definitive food-safety verdict.

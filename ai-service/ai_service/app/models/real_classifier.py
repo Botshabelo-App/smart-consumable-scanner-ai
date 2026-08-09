@@ -99,27 +99,49 @@ IMAGENET_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
 HINT_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "milk": ("milk", ProductCategory.DAIRY),
     "cheese": ("cheese", ProductCategory.DAIRY),
+    "yoghurt": ("yoghurt", ProductCategory.DAIRY),
     "yogurt": ("yogurt", ProductCategory.DAIRY),
     "butter": ("butter", ProductCategory.DAIRY),
+    "cream": ("cream", ProductCategory.DAIRY),
     "beef": ("beef", ProductCategory.MEAT),
     "steak": ("beef", ProductCategory.MEAT),
+    "mince": ("mince", ProductCategory.MEAT),
+    "sausage": ("sausage", ProductCategory.MEAT),
     "chicken": ("chicken", ProductCategory.MEAT),
     "pork": ("pork", ProductCategory.MEAT),
     "lamb": ("lamb", ProductCategory.MEAT),
     "fish": ("fish", ProductCategory.SEAFOOD),
     "salmon": ("salmon", ProductCategory.SEAFOOD),
     "shrimp": ("shrimp", ProductCategory.SEAFOOD),
+    "prawn": ("prawn", ProductCategory.SEAFOOD),
+    "lobster": ("lobster", ProductCategory.SEAFOOD),
     "apple": ("apple", ProductCategory.PRODUCE),
     "banana": ("banana", ProductCategory.PRODUCE),
     "orange": ("orange", ProductCategory.PRODUCE),
+    "grape": ("grape", ProductCategory.PRODUCE),
+    "tomato": ("tomato", ProductCategory.PRODUCE),
+    "lettuce": ("lettuce", ProductCategory.PRODUCE),
+    "potato": ("potato", ProductCategory.PRODUCE),
+    "onion": ("onion", ProductCategory.PRODUCE),
+    "spinach": ("spinach", ProductCategory.PRODUCE),
     "bread": ("bread", ProductCategory.FOOD),
+    "roll": ("roll", ProductCategory.FOOD),
+    "muffin": ("muffin", ProductCategory.FOOD),
+    "croissant": ("croissant", ProductCategory.FOOD),
     "egg": ("egg", ProductCategory.FOOD),
     "water": ("water", ProductCategory.BEVERAGE),
+    "bottled water": ("bottled water", ProductCategory.BEVERAGE),
     "juice": ("juice", ProductCategory.BEVERAGE),
+    "soft drink": ("soft drink", ProductCategory.BEVERAGE),
+    "cooldrink": ("cooldrink", ProductCategory.BEVERAGE),
     "beer": ("beer", ProductCategory.BEVERAGE),
     "wine": ("wine", ProductCategory.BEVERAGE),
     "whiskey": ("whiskey", ProductCategory.BEVERAGE),
-    "soft drink": ("soft drink", ProductCategory.BEVERAGE),
+    "whisky": ("whisky", ProductCategory.BEVERAGE),
+    "brandy": ("brandy", ProductCategory.BEVERAGE),
+    "vodka": ("vodka", ProductCategory.BEVERAGE),
+    "gin": ("gin", ProductCategory.BEVERAGE),
+    "spirit": ("spirits", ProductCategory.BEVERAGE),
     "energy drink": ("energy drink", ProductCategory.BEVERAGE),
     "coffee": ("coffee", ProductCategory.BEVERAGE),
     "tea": ("tea", ProductCategory.BEVERAGE),
@@ -127,12 +149,66 @@ HINT_TO_PRODUCT: dict[str, Tuple[str, ProductCategory]] = {
     "baby food": ("baby food", ProductCategory.PACKAGED),
     "canned": ("canned product", ProductCategory.PACKAGED),
     "frozen": ("frozen food", ProductCategory.FROZEN),
+    "ice cream": ("ice cream", ProductCategory.FROZEN),
     "dry": ("dry product", ProductCategory.DRY),
     "powder": ("powder product", ProductCategory.DRY),
     "flour": ("flour", ProductCategory.DRY),
     "sugar": ("sugar", ProductCategory.DRY),
     "rice": ("rice", ProductCategory.DRY),
+    "pasta": ("pasta", ProductCategory.DRY),
+    "noodle": ("noodles", ProductCategory.DRY),
+    "cereal": ("cereal", ProductCategory.DRY),
+    "biscuit": ("biscuit", ProductCategory.PACKAGED),
+    "cracker": ("cracker", ProductCategory.PACKAGED),
+    "chocolate": ("chocolate", ProductCategory.PACKAGED),
+    "chip": ("chips", ProductCategory.PACKAGED),
+    "crisp": ("crisps", ProductCategory.PACKAGED),
+    "snack": ("snack", ProductCategory.PACKAGED),
+    "sauce": ("sauce", ProductCategory.PACKAGED),
+    "soup": ("soup", ProductCategory.PACKAGED),
+    "condiment": ("condiment", ProductCategory.PACKAGED),
+    "spread": ("spread", ProductCategory.PACKAGED),
+    "jam": ("jam", ProductCategory.PACKAGED),
+    "honey": ("honey", ProductCategory.PACKAGED),
+    "peanut butter": ("peanut butter", ProductCategory.PACKAGED),
+    "mayonnaise": ("mayonnaise", ProductCategory.PACKAGED),
+    "ketchup": ("ketchup", ProductCategory.PACKAGED),
+    "mustard": ("mustard", ProductCategory.PACKAGED),
+    "vinegar": ("vinegar", ProductCategory.PACKAGED),
+    "spice": ("spice", ProductCategory.DRY),
+    "seasoning": ("seasoning", ProductCategory.DRY),
+    "supplement": ("supplement", ProductCategory.OTHER),
+    "medicine": ("medicine", ProductCategory.OTHER),
+    "formula": ("formula", ProductCategory.PACKAGED),
 }
+
+GENERIC_PACKAGED_KEYWORDS = [
+    "packet", "box", "carton", "bottle", "can", "tin", "jar", "bag", "pouch",
+    "sachet", "wrapper", "container", "tray", "tube", "pack", "packaging",
+    "wrapped", "sealed", "boxed", "bottled", "canned", "jarred",
+]
+
+
+def _category_from_hint(hint: Optional[str]) -> Optional[Tuple[str, ProductCategory]]:
+    """Return a product name/category from a barcode/OCR/operator hint.
+
+    If the hint contains known food keywords, map it precisely. If it contains
+    packaging keywords or is a non-empty product name, treat it as a generic
+    packaged consumable so that the scanner supports any labelled product.
+    """
+    if not hint or not hint.strip():
+        return None
+    hint_lower = hint.lower().strip()
+    for key, (name, cat) in HINT_TO_PRODUCT.items():
+        if key in hint_lower:
+            return name, cat
+    if any(k in hint_lower for k in GENERIC_PACKAGED_KEYWORDS):
+        return hint.strip() or "packaged product", ProductCategory.PACKAGED
+    if len(hint_lower) >= 3:
+        # Unknown product name supplied by OCR or operator; default to packaged consumable
+        # rather than rejecting the scan, so inspection can still proceed.
+        return hint.strip() or "packaged product", ProductCategory.PACKAGED
+    return None
 
 
 def _download_spoilage_checkpoint() -> Path:
@@ -214,10 +290,19 @@ class RealProductPipeline:
             *condition_reasons,
         ]
 
-        if category in (ProductCategory.PACKAGED, ProductCategory.FROZEN, ProductCategory.DRY, ProductCategory.BEVERAGE):
+        if category in (ProductCategory.PACKAGED, ProductCategory.FROZEN, ProductCategory.DRY, ProductCategory.BEVERAGE, ProductCategory.OTHER):
             findings.append(
-                "Limitation: smartphone camera cannot reliably determine the internal condition of sealed or opaque products."
+                "Limitation: smartphone camera cannot determine the internal condition of sealed or opaque products."
             )
+
+        # Cautious language: never claim safety or counterfeit proof from image alone.
+        if product_hint:
+            findings.append("Product hint provided; cross-check with printed packaging and barcode before accepting.")
+        else:
+            findings.append("No barcode/OCR product hint available; visual-only assessment.")
+
+        if condition == Condition.SUSPICIOUS or product_name == "unknown product":
+            findings.append("AI evidence is insufficient — product may need manual inspection.")
 
         return ScanResult(
             condition=condition,
@@ -268,9 +353,20 @@ class RealProductPipeline:
     def _classify_product(
         self, crop: Image.Image, product_hint: Optional[str], detection_info: dict
     ) -> Tuple[str, Optional[ProductCategory], float]:
-        if self.imagenet_model is None or self.imagenet_transform is None:
-            return product_hint or "unknown", None, 0.0
+        # 1. Trust the barcode/OCR/operator hint first. It encodes the actual
+        # product identity and lets the scanner handle any packaged consumable.
+        hint_result = _category_from_hint(product_hint)
+        if hint_result:
+            name, cat = hint_result
+            # Confidence is moderate because the hint came from a printed label
+            # or manual entry and should be cross-checked, not treated as proof.
+            return name, cat, 0.75
 
+        # 2. If the real model is not available, be honest and avoid guesses.
+        if self.imagenet_model is None or self.imagenet_transform is None:
+            return "unknown product", None, 0.0
+
+        # 3. Fall back to visual classification for unpackaged produce/items.
         tensor = self.imagenet_transform(crop).unsqueeze(0).to(self.device)
         with torch.no_grad():
             logits = self.imagenet_model(tensor)
@@ -278,13 +374,6 @@ class RealProductPipeline:
 
         top5_values, top5_indices = torch.topk(probs, 5)
         top5_labels = [(self.imagenet_labels[int(i)], float(v)) for i, v in zip(top5_indices, top5_values)]
-
-        # Hint override (clean up noisy filename-based hints, do not trust blindly)
-        if product_hint:
-            hint_lower = product_hint.lower()
-            for key, (name, cat) in HINT_TO_PRODUCT.items():
-                if key in hint_lower:
-                    return name, cat, 0.7
 
         # YOLO label fallback for COCO objects commonly seen in consumables
         yolo_label = detection_info.get("label", "")
@@ -314,7 +403,9 @@ class RealProductPipeline:
                 if key in label_lower:
                     return name, cat, conf
 
-        return top5_labels[0][0] if top5_labels else "unknown", None, float(top5_labels[0][1]) if top5_labels else 0.0
+        # 4. No confident match — treat as an unknown packaged consumable so the
+        # inspection can continue with packaging analysis and manual review.
+        return "unknown product", ProductCategory.PACKAGED, float(top5_labels[0][1]) if top5_labels else 0.35
 
     def _assess_condition(
         self, crop: Image.Image, category: Optional[ProductCategory], full_np: np.ndarray, product_hint: Optional[str]
@@ -350,6 +441,14 @@ class RealProductPipeline:
         if dark_ratio > 0.05:
             reasons.append(f"Dark spots / bruising / mold detected: {dark_ratio:.1%} of surface")
 
+        # When the product is unknown or we only have packaging visible, do not
+        # guess freshness from surface models. Inspect the packaging and require
+        # human verification.
+        if category is None or category is ProductCategory.PACKAGED:
+            reasons.append("Product not confidently identified from barcode/OCR/image; visual-only assessment.")
+            condition, confidence, reasons = self._assess_packaging(crop_np, reasons)
+            return Condition.SUSPICIOUS, min(confidence, 0.60), reasons + ["Unknown/needs manual inspection"]
+
         # Apply spoilage model for produce / meat / seafood / dairy where surface is visible
         if category in (ProductCategory.PRODUCE, ProductCategory.MEAT, ProductCategory.SEAFOOD, ProductCategory.DAIRY):
             p_spoiled = self._spoilage_score(crop)
@@ -361,7 +460,7 @@ class RealProductPipeline:
                 reasons.append("Surface discoloration overrides low spoilage score")
             return condition, confidence, reasons
 
-        # Packaging analysis for sealed / packaged products
+        # For all other packaged/sealed/frozen/dry items, only packaging condition can be judged.
         return self._assess_packaging(crop_np, reasons)
 
     def _spoilage_score(self, crop: Image.Image) -> float:
@@ -416,7 +515,7 @@ class RealProductPipeline:
             reasons.append("Possible packaging swelling")
             return Condition.SUSPICIOUS, 0.60, reasons
 
-        reasons.append("Packaging appears intact")
+        reasons.append("Packaging appears intact externally; internal condition not verified")
         return Condition.FRESH, 0.80, reasons
 
     def _estimate_packaging(self, crop: Image.Image) -> str:

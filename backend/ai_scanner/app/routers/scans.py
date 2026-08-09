@@ -170,12 +170,16 @@ def _enrich_findings(
     damage_keywords = ["tear", "hole", "dent", "swelling", "leak", "crack", "rupture", "puncture", "broken seal"]
     contamination_keywords = ["mould", "mold", "discolouration", "discoloration", "fungus", "slime", "off smell"]
     if any(k in findings_text for k in damage_keywords):
-        findings.append("Packaging damage detected.")
+        findings.append("Possible packaging damage detected — inspect manually.")
     if any(k in findings_text for k in contamination_keywords):
-        findings.append("Possible contamination detected.")
+        findings.append("Possible contamination detected — inspect manually.")
 
     packaging_condition = _packaging_condition_from_ai(ai_result)
     findings.append(f"Packaging condition: {packaging_condition}")
+
+    # Cautious final statement: image analysis is never proof of safety or tampering.
+    if not ocr.raw_text or len(ocr.raw_text.strip()) < 10:
+        findings.append("Limited label information — manual verification recommended.")
 
     return findings
 
