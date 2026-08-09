@@ -37,6 +37,8 @@ app = FastAPI(
 # AI inference mounted under /ai so the backend can call it internally.
 app.mount("/ai", ai_app)
 # Pilot download page and APK served under /download so the same public URL
-# works for the mobile app and for downloading the APK.
-app.mount("/download", StaticFiles(directory="pilot-site", html=True), name="static")
+# works for the mobile app and for downloading the APK. In production the APK is
+# distributed separately, so this static mount is optional.
+if os.path.isdir("pilot-site"):
+    app.mount("/download", StaticFiles(directory="pilot-site", html=True), name="static")
 app.mount("/", backend_app)

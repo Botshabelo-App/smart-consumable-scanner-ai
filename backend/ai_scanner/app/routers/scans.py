@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Barcode, Product, Scan, User
-from ai_scanner.app.dependencies import require_user
+from ai_scanner.app.dependencies import require_admin, require_user
 from ai_scanner.app.limiter import limiter
 from ai_scanner.app.schemas import Condition, ProductCategory, ScanFeedbackPayload, ScanRead, ScanResult
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
@@ -25,17 +25,21 @@ from ai_scanner.app.services.report_service import save_upload
 router = APIRouter()
 
 
-def _resolve_product_from_barcode(db: Session, code: str):
+def _resolve_product_from_barcode(db: Session, code: str, company_id: Optional[uuid.UUID] = None):
     barcode = db.query(Barcode).filter(Barcode.code == code).first()
     if not barcode:
         external = openfoodfacts_lookup(code)
         if external:
-            product = db.query(Product).filter(Product.name.ilike(external["name"] or "")).first()
+            q = db.query(Product).filter(Product.name.ilike(external["name"] or ""))
+            if company_id:
+                q = q.filter((Product.company_id == company_id) | (Product.company_id.is_(None)))
+            product = q.first()
             if not product:
                 product = Product(
                     name=external["name"] or "Unknown product",
                     category=None,
                     packaging_type=external.get("packaging"),
+                    company_id=company_id,
                 )
                 db.add(product)
                 db.commit()
@@ -49,6 +53,17 @@ def _resolve_product_from_barcode(db: Session, code: str):
             db.commit()
             db.refresh(barcode)
     return barcode
+
+
+def _is_admin(user: User) -> bool:
+    return user.role.value in {"administrator", "company_admin"}
+
+
+def _tenant_scope(user: User, requested_company_id: Optional[uuid.UUID] = None, requested_branch_id: Optional[uuid.UUID] = None):
+    """Return the (company_id, branch_id) that a scan should be recorded under."""
+    company_id = requested_company_id if _is_admin(user) and requested_company_id else user.company_id
+    branch_id = requested_branch_id if _is_admin(user) and requested_branch_id else user.branch_id
+    return company_id, branch_id
 
 
 def _discrepancy_reason(
@@ -219,8 +234,11 @@ async def analyze_image(
     product_name = _coalesce_field(product_name, ocr.product_name)
     brand = _coalesce_field(brand, ocr.brand)
 
+    # Determine tenant scope for the scan.
+    scan_company_id, scan_branch_id = _tenant_scope(user, company_id, branch_id)
+
     # 2. Resolve product from barcode (OpenFoodFacts fallback).
-    barcode_obj = _resolve_product_from_barcode(db, barcode_code) if barcode_code else None
+    barcode_obj = _resolve_product_from_barcode(db, barcode_code, company_id=scan_company_id) if barcode_code else None
     product_id = barcode_obj.product_id if barcode_obj else None
     product = db.query(Product).filter(Product.id == product_id).first() if product_id else None
 
@@ -259,8 +277,8 @@ async def analyze_image(
         id=uuid.uuid4(),
         product_id=product_id,
         barcode_id=barcode_obj.id if barcode_obj else None,
-        company_id=company_id,
-        branch_id=branch_id,
+        company_id=scan_company_id,
+        branch_id=scan_branch_id,
         device_id=device_id,
         product_name=scan_product_name,
         category=product_category,
@@ -309,6 +327,13 @@ async def analyze_image(
     return scan
 
 
+def _scan_query_for_user(db: Session, user: User):
+    q = db.query(Scan)
+    if not _is_admin(user) and user.company_id:
+        q = q.filter(Scan.company_id == user.company_id)
+    return q
+
+
 @router.get("/", response_model=List[ScanRead])
 def list_scans(
     limit: int = 100,
@@ -316,12 +341,18 @@ def list_scans(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    return db.query(Scan).order_by(Scan.created_at.desc()).offset(offset).limit(limit).all()
+    return (
+        _scan_query_for_user(db, user)
+        .order_by(Scan.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{scan_id}", response_model=ScanRead)
 def get_scan(scan_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
-    scan = db.query(Scan).filter(Scan.id == uuid.UUID(scan_id)).first()
+    scan = _scan_query_for_user(db, user).filter(Scan.id == uuid.UUID(scan_id)).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
@@ -334,7 +365,7 @@ def feedback(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    scan = db.query(Scan).filter(Scan.id == uuid.UUID(scan_id)).first()
+    scan = _scan_query_for_user(db, user).filter(Scan.id == uuid.UUID(scan_id)).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     scan.inspector_accepted = payload.accepted

@@ -67,12 +67,16 @@ async def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
     return user
 
 
 def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
     return user
 
 
@@ -82,3 +86,10 @@ def require_role(*allowed: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
         return user
     return checker
+
+
+def require_admin(user: User = Depends(require_user)) -> User:
+    """Require a global administrator or an organisation administrator."""
+    if user.role.value not in {"administrator", "company_admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Administrator access required")
+    return user

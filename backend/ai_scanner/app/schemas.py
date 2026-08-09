@@ -78,6 +78,32 @@ class UserLogin(BaseModel):
     password: str
 
 
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class OrganisationRegister(BaseModel):
+    organisation_name: str
+    registration_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    admin_full_name: str
+    admin_email: str
+    admin_password: str
+
+    @field_validator("admin_password")
+    @classmethod
+    def _validate_admin_password(cls, v: str) -> str:
+        from ai_scanner.app.dependencies import validate_password
+
+        try:
+            validate_password(v)
+        except ValueError as exc:
+            raise ValueError(str(exc)) from exc
+        return v
+
+
 class UserRead(BaseModel):
     id: UUID
     email: str
@@ -91,9 +117,16 @@ class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+class OrganisationRead(BaseModel):
+    id: UUID
+    name: str
+    registration_number: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    admin: Optional[UserRead] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScanCreate(BaseModel):

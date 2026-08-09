@@ -21,6 +21,24 @@ from ai_scanner.app.services.report_service import generate_csv, generate_excel,
 router = APIRouter()
 
 
+def _is_admin(user: User) -> bool:
+    return user.role.value in {"administrator", "company_admin"}
+
+
+def _scan_query_for_user(db: Session, user: User):
+    q = db.query(Scan)
+    if not _is_admin(user) and user.company_id:
+        q = q.filter(Scan.company_id == user.company_id)
+    return q
+
+
+def _report_query_for_user(db: Session, user: User):
+    q = db.query(Report).join(Scan)
+    if not _is_admin(user) and user.company_id:
+        q = q.filter(Scan.company_id == user.company_id)
+    return q
+
+
 def _new_report_id() -> str:
     return f"RPT-{uuid.uuid4().hex[:12].upper()}"
 
@@ -32,7 +50,7 @@ def create_report(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    scan = db.query(Scan).filter(Scan.id == payload.scan_id).first()
+    scan = _scan_query_for_user(db, user).filter(Scan.id == payload.scan_id).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
@@ -71,7 +89,11 @@ def create_report(
 
 @router.get("/", response_model=List[ReportRead])
 def list_reports(db: Session = Depends(get_db), user: User = Depends(require_user)):
-    return db.query(Report).order_by(Report.generated_at.desc()).all()
+    return (
+        _report_query_for_user(db, user)
+        .order_by(Report.generated_at.desc())
+        .all()
+    )
 
 
 @router.get("/{report_id}", response_model=ReportRead)
@@ -80,10 +102,11 @@ def get_report(report_id: str, db: Session = Depends(get_db), user: User = Depen
         report_uuid = uuid.UUID(report_id)
     except ValueError:
         report_uuid = None
+    q = _report_query_for_user(db, user)
     report = (
-        db.query(Report).filter(Report.id == report_uuid).first()
+        q.filter(Report.id == report_uuid).first()
         if report_uuid else None
-    ) or db.query(Report).filter(Report.report_id == report_id).first()
+    ) or q.filter(Report.report_id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
@@ -95,10 +118,11 @@ def download_report(report_id: str, db: Session = Depends(get_db), user: User = 
         report_uuid = uuid.UUID(report_id)
     except ValueError:
         report_uuid = None
+    q = _report_query_for_user(db, user)
     report = (
-        db.query(Report).filter(Report.id == report_uuid).first()
+        q.filter(Report.id == report_uuid).first()
         if report_uuid else None
-    ) or db.query(Report).filter(Report.report_id == report_id).first()
+    ) or q.filter(Report.report_id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     if not report.file_url or not os.path.exists(report.file_url):
