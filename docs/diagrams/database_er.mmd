@@ -1,0 +1,140 @@
+erDiagram
+    PILOT_PROFILE ||--o{ COMPANY : configures
+    COMPANY ||--o{ BRANCH : owns
+    COMPANY ||--o{ PRODUCT : produces
+    COMPANY ||--o{ USER : employs
+    COMPANY ||--o{ SCAN : records
+    BRANCH ||--o{ USER : staffs
+    BRANCH ||--o{ DEVICE : registers
+    MANUFACTURER ||--o{ PRODUCT : makes
+    PRODUCT ||--o{ BARCODE : has
+    PRODUCT ||--o{ SCAN : inspected
+    BARCODE ||--o{ SCAN : identifies
+    USER ||--o{ SCAN : performs
+    USER ||--o{ AUDIT_LOG : acts
+    USER ||--o{ REVIEW_REQUEST : reviews
+    SCAN ||--o{ REVIEW_REQUEST : flagged
+    SCAN ||--|| REPORT : generates
+    MODEL_REGISTRY }|--|| SCAN : active_model
+
+    PILOT_PROFILE {
+        uuid id PK
+        string name
+        string organization_type
+        json settings
+        json branding
+        json inspection_workflow
+    }
+
+    COMPANY {
+        uuid id PK
+        string name
+        string registration_number
+        uuid pilot_profile_id FK
+    }
+
+    BRANCH {
+        uuid id PK
+        uuid company_id FK
+        string name
+        float latitude
+        float longitude
+    }
+
+    USER {
+        uuid id PK
+        string email
+        string full_name
+        string role
+        uuid company_id FK
+        uuid branch_id FK
+    }
+
+    DEVICE {
+        uuid id PK
+        uuid branch_id FK
+        string name
+        string platform
+        string serial_identifier
+    }
+
+    MANUFACTURER {
+        uuid id PK
+        string name
+        string country
+    }
+
+    PRODUCT {
+        uuid id PK
+        uuid company_id FK
+        uuid manufacturer_id FK
+        string name
+        string category
+        string packaging_type
+    }
+
+    BARCODE {
+        uuid id PK
+        uuid product_id FK
+        string code
+        string batch_number
+        datetime production_date
+        datetime expiry_date
+    }
+
+    SCAN {
+        uuid id PK
+        uuid product_id FK
+        uuid barcode_id FK
+        uuid company_id FK
+        uuid branch_id FK
+        uuid inspector_id FK
+        string product_name
+        string condition
+        float confidence
+        json findings
+        boolean ai_vs_label_discrepancy
+        string image_path
+        float latitude
+        float longitude
+        boolean inspector_accepted
+        string override_condition
+        string override_reason
+    }
+
+    REPORT {
+        uuid id PK
+        string report_id
+        uuid scan_id FK
+        string file_url
+    }
+
+    REVIEW_REQUEST {
+        uuid id PK
+        uuid scan_id FK
+        uuid user_id FK
+        string status
+        string approved_label
+    }
+
+    AUDIT_LOG {
+        uuid id PK
+        uuid user_id FK
+        string action
+        string resource_type
+        string resource_id
+        text details
+        string ip_address
+        datetime created_at
+    }
+
+    MODEL_REGISTRY {
+        uuid id PK
+        string model_id
+        string version
+        string dataset_version
+        string validation_metrics
+        string artifact_path
+        string checksum
+        string status
+    }

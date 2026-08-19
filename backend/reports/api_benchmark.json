@@ -1,0 +1,11 @@
+{
+  "endpoint": "http://localhost:8000/scans/analyze",
+  "runs": 5,
+  "image": "/tmp/apple.png",
+  "mean_ms": 412.52,
+  "min_ms": 396.82,
+  "max_ms": 448.6,
+  "p50_ms": 400.72,
+  "p95_ms": 448.6,
+  "throughput_rps": 2.42
+}

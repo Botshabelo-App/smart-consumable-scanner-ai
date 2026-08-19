@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node / Expo
+node_modules/
+.expo/
+.expo-shared/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.jks
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+ios/
+android/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads
+uploads/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Models
+checkpoints/
+*.h5
+*.pt
+*.pth
+*.onnx
+*.tflite
+
+# Generated datasets, experiments, reports, and logs
+ai-service/data/
+ai-service/experiments/
+mobile/device_logs/
+/reports/
+backend/reports/
+*.apk

@@ -1,0 +1,36 @@
+flowchart TB
+    subgraph Edge
+        MobileApp["Expo / React Native Mobile App"]
+        WebDashboard["Admin Web Dashboard"]
+    end
+
+    subgraph Cluster["Kubernetes Cluster"]
+        Nginx["Nginx Ingress / Reverse Proxy"]
+        BackendPod["FastAPI Backend Pods"]
+        AIPod["AI Service Pods"]
+        WorkerPod["Report / Queue Workers"]
+    end
+
+    subgraph Data["Data Layer"]
+        PG[("PostgreSQL (managed or in-cluster)")]
+        S3[("S3-compatible Object Storage")]
+        Redis[("Redis / in-memory queue")]
+    end
+
+    subgraph Build["Build & Distribution"]
+        EAS["Expo Application Services (EAS)"]
+        CI["CI/CD Pipeline"]
+    end
+
+    MobileApp -->|HTTPS| Nginx
+    WebDashboard -->|HTTPS| Nginx
+    Nginx --> BackendPod
+    Nginx --> AIPod
+    BackendPod -->|SQLAlchemy| PG
+    BackendPod -->|Upload/download| S3
+    BackendPod -->|Async tasks| Redis
+    WorkerPod -->|Read queue| Redis
+    WorkerPod -->|Generate/store| S3
+    EAS --> MobileApp
+    CI --> BackendPod
+    CI --> AIPod

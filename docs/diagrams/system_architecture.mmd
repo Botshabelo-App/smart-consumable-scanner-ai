@@ -1,0 +1,39 @@
+flowchart TB
+    subgraph Users
+        Inspector["Inspector / Consumer (Mobile)"]
+        Admin["Administrator / Manager (Web Dashboard)"]
+        Reviewer["Reviewer / Auditor"]
+    end
+
+    subgraph Edge
+        Mobile["React Native + Expo Mobile App"]
+    end
+
+    subgraph Cloud["Backend Services"]
+        Nginx["Nginx Reverse Proxy (TLS)"]
+        Backend["FastAPI Backend (auth, scans, reports, monitoring)"]
+        AIService["Python AI Service (object detection, classification, explainability)"]
+    end
+
+    subgraph Data
+        DB[("PostgreSQL / SQLite")]
+        Storage[("Object Storage / Shared Volume")]
+        ModelStore[("Model Artifact Store")]
+    end
+
+    subgraph External
+        OFF["Open Food Facts (barcode/QR lookup)"]
+        Maps["Maps / GPS"]
+    end
+
+    Inspector -->|Scan product| Mobile
+    Mobile -->|HTTPS / REST| Nginx
+    Admin -->|Dashboard| Nginx
+    Reviewer -->|Review flagged scans| Nginx
+    Nginx -->|/api/*| Backend
+    Backend -->|/ai/*| AIService
+    Backend -->|Read/Write| DB
+    Backend -->|Store images/reports| Storage
+    AIService -->|Load active model| ModelStore
+    Backend -->|Barcode/QR data| OFF
+    Mobile -->|Capture location| Maps

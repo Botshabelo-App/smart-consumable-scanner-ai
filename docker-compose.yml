@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: scanner
+      POSTGRES_PASSWORD: scanner
+      POSTGRES_DB: consumable_scanner
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scanner -d consumable_scanner"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8001:8000"
+    environment:
+      - MODEL_PATH=/app/models
+      - LOG_LEVEL=info
+    volumes:
+      - ai_model_data:/app/models
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://scanner:scanner@db:5432/consumable_scanner
+      - AI_SERVICE_URL=http://ai-service:8000
+      - SECRET_KEY=dev-change-in-production
+      - FALLBACK_TO_SQLITE=true
+      - UPLOAD_DIR=/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+    volumes:
+      - backend_uploads:/app/uploads
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  ai_model_data:

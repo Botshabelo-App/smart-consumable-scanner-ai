@@ -1,0 +1,39 @@
+flowchart TB
+    subgraph UI
+        Auth["Auth screens"]
+        Scan["ScanScreen"]
+        Dashboard["Dashboard"]
+        History["Inspection history"]
+        Reports["Reports"]
+    end
+
+    subgraph Core
+        API["api.ts (HTTP client)"]
+        I18n["i18n (11 SA languages)"]
+        Store["Secure token store"]
+        OfflineQueue["Offline scan queue"]
+        Profiler["PerformanceProfiler"]
+    end
+
+    subgraph Native
+        Camera["expo-camera"]
+        Barcode["expo-camera barcode/QR"]
+        Location["expo-location"]
+        FileSystem["expo-file-system"]
+        SecureStore["expo-secure-store"]
+        Maps["react-native-maps"]
+    end
+
+    subgraph Backend
+        REST["FastAPI REST API"]
+    end
+
+    UI --> Core
+    Scan --> Camera
+    Scan --> Barcode
+    Scan --> Location
+    Scan --> FileSystem
+    Auth --> SecureStore
+    API --> REST
+    OfflineQueue --> API
+    Profiler --> Scan

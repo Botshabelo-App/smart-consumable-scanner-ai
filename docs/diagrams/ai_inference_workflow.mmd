@@ -1,0 +1,21 @@
+flowchart LR
+    Image["Input product image"]
+    Preprocess["Preprocessing<br/>resize, normalize, quality check"]
+    YOLO["YOLOv8 object detection"]
+    Product["Product classifier<br/>EfficientNet-B0"]
+    Spoilage["Spoilage / condition<br/>MobileNetV3-Small"]
+    Packaging["Packaging analysis<br/>OpenCV contour & texture"]
+    PostProcess["Post-processing<br/>aggregate scores, calibration"]
+    Findings["Explainable findings<br/>Grad-CAM, top-k reasons"]
+    Result["AI result: product, condition, confidence, limitations"]
+
+    Image --> Preprocess
+    Preprocess --> YOLO
+    YOLO --> Product
+    YOLO --> Spoilage
+    Preprocess --> Packaging
+    Product --> PostProcess
+    Spoilage --> PostProcess
+    Packaging --> PostProcess
+    PostProcess --> Findings
+    Findings --> Result

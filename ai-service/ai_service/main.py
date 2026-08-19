@@ -1,0 +1,47 @@
+# Copyright 2026 Moeketsi Daniel and contributors.
+# All rights reserved.
+# This file is part of the Smart Consumable Scanner AI project.
+# Use is subject to the project licence terms.
+
+from contextlib import asynccontextmanager
+from typing import Optional
+
+from fastapi import FastAPI, File, Form, UploadFile
+
+from ai_service.app.models.classifier import get_classifier
+from ai_service.app.services.image_processor import guess_product_hint, load_image
+from ai_service.schemas import ScanResult
+
+
+def _classifier():
+    return get_classifier()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    cls = _classifier()
+    if hasattr(cls, "warm_up"):
+        cls.warm_up()
+    yield
+
+
+app = FastAPI(
+    title="Smart Consumable Scanner AI Inference Service",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+
+@app.get("/health", tags=["health"])
+def health_check():
+    return {"status": "ok", "framework": _classifier().framework}
+
+
+@app.post("/analyze", response_model=ScanResult, tags=["analysis"])
+async def analyze(
+    image: UploadFile = File(...),
+    product_hint: Optional[str] = Form(None),
+):
+    pil_image = await load_image(image)
+    hint = product_hint or guess_product_hint(image.filename)
+    return _classifier().predict(pil_image, product_hint=hint)
