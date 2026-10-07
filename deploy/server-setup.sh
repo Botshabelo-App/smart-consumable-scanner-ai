@@ -17,7 +17,9 @@ if [ ! -f /swapfile ] && [ "$(free -m | awk '/Mem:/{print $2}')" -lt 4000 ]; the
   echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
-if [ ! -d "$APP_DIR/.git" ]; then
+if [ "${SKIP_GIT:-0}" = "1" ]; then
+  echo "SKIP_GIT=1: using code already in $APP_DIR"
+elif [ ! -d "$APP_DIR/.git" ]; then
   git clone -b "$BRANCH" https://github.com/Botshabelo-App/smart-consumable-scanner-ai.git "$APP_DIR"
 else
   git -C "$APP_DIR" fetch origin "$BRANCH" && git -C "$APP_DIR" checkout "$BRANCH" && git -C "$APP_DIR" reset --hard "origin/$BRANCH"
