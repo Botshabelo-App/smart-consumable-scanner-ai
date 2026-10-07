@@ -14,7 +14,7 @@ export const brand = {
   dangerColor: '#c62828',
   warningColor: '#ef6c00',
   lightBackground: '#f5f7fa',
-  defaultBackendUrl: 'https://fuji-configure-nirvana-added.trycloudflare.com',
+  defaultBackendUrl: 'https://134-122-102-108.sslip.io',
 };
 
 export const supportedLanguages: { code: string; name: string; voiceLocale: string }[] = [
