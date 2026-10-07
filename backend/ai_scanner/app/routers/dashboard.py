@@ -16,7 +16,8 @@ router = APIRouter()
 
 
 def _is_admin(user: User) -> bool:
-    return user.role.value in {"administrator", "company_admin"}
+    """Only platform administrators see across organisations; company admins stay scoped."""
+    return user.role.value == "administrator"
 
 
 def _scan_query_for_user(db: Session, user: User):

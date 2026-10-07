@@ -125,6 +125,8 @@ def create_inspector(payload: UserCreate, db: Session = Depends(get_db), admin=D
         raise HTTPException(status_code=400, detail="Email already registered")
     if not _can_manage_company(admin, payload.company_id):
         raise HTTPException(status_code=403, detail="Cannot create users outside your organisation")
+    if not _is_global_admin(admin) and payload.role.value == "administrator":
+        raise HTTPException(status_code=403, detail="Only platform administrators can create administrators")
 
     payload.organization = _resolve_user_organization(db, payload)
     user = create_user(db, payload)

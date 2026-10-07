@@ -39,6 +39,8 @@ def register(
     if current is None:
         return _self_register(payload, db)
     admin = require_admin(current)
+    if admin.role.value != "administrator" and payload.role.value == "administrator":
+        raise HTTPException(status_code=403, detail="Only platform administrators can create administrators")
     if admin.role.value == "company_admin" and admin.company_id and payload.company_id != admin.company_id:
         raise HTTPException(status_code=403, detail="Cannot create users outside your organisation")
     existing = db.query(User).filter(User.email == payload.email).first()

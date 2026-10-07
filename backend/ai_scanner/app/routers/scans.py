@@ -56,7 +56,8 @@ def _resolve_product_from_barcode(db: Session, code: str, company_id: Optional[u
 
 
 def _is_admin(user: User) -> bool:
-    return user.role.value in {"administrator", "company_admin"}
+    """Only platform administrators see across organisations; company admins stay scoped."""
+    return user.role.value == "administrator"
 
 
 def _tenant_scope(user: User, requested_company_id: Optional[uuid.UUID] = None, requested_branch_id: Optional[uuid.UUID] = None):
