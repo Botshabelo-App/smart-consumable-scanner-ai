@@ -7,7 +7,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.responses import JSONResponse, RedirectResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -47,6 +49,19 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError):
+    """Auth screens display `detail` as text, so return a readable message there."""
+    if not request.url.path.startswith("/auth/"):
+        return await request_validation_exception_handler(request, exc)
+    msgs = []
+    for err in exc.errors():
+        field = ".".join(str(p) for p in err.get("loc", [])[1:])
+        msg = str(err.get("msg", "")).removeprefix("Value error, ")
+        msgs.append(f"{field}: {msg}" if field else msg)
+    return JSONResponse(status_code=422, content={"detail": "; ".join(msgs) or "Invalid request"})
 
 # CORS is intentionally permissive for Expo development. In production, set
 # CORS_ORIGINS to the exact mobile/dashboard domains.

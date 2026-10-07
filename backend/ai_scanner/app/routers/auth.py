@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Company, User
-from ai_scanner.app.dependencies import create_access_token, get_password_hash, require_admin, require_user, validate_password, verify_password
+from ai_scanner.app.dependencies import create_access_token, get_current_user, get_password_hash, require_admin, require_user, validate_password, verify_password
 from ai_scanner.app.limiter import limiter
 from ai_scanner.app.schemas import OrganisationRead, OrganisationRegister, Token, UserCreate, UserLogin, UserRead
 from ai_scanner.app.services.audit import log_event
@@ -32,9 +32,13 @@ def register(
     request: Request,
     payload: UserCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    current: Optional[User] = Depends(get_current_user),
 ):
-    """Create a user within an organisation (admin-only)."""
+    """Admins create users in their organisation; unauthenticated callers self-register
+    as administrator of a new organisation (same as /register-organisation)."""
+    if current is None:
+        return _self_register(payload, db)
+    admin = require_admin(current)
     if admin.role.value == "company_admin" and admin.company_id and payload.company_id != admin.company_id:
         raise HTTPException(status_code=403, detail="Cannot create users outside your organisation")
     existing = db.query(User).filter(User.email == payload.email).first()
@@ -49,6 +53,30 @@ def register(
         payload.organization = company.name if company else None
     user = create_user(db, payload)
     log_event(action="user_register", user_id=user.id, resource_type="user", resource_id=str(user.id))
+    return user
+
+
+def _self_register(payload: UserCreate, db: Session) -> User:
+    if db.query(User).filter(User.email == payload.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    org_name = (payload.organization or "").strip() or f"{payload.full_name.strip() or payload.email} (self-registered)"
+    company = Company(name=org_name, contact_email=payload.email)
+    db.add(company)
+    db.flush()
+    user = User(
+        email=payload.email,
+        full_name=payload.full_name,
+        hashed_password=get_password_hash(payload.password),
+        role="company_admin",
+        organization=org_name,
+        company_id=company.id,
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    log_event(action="organisation_registered", user_id=user.id, resource_type="company", resource_id=str(company.id),
+              details=f"organisation={org_name}, admin={user.email}, via=self_register")
     return user
 
 
