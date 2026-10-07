@@ -381,6 +381,11 @@ export default function ScanScreen() {
           <Text style={[styles.resultTitle, { color: conditionColor[result.condition] }]}>
             {conditionMessage[result.condition]}
           </Text>
+          {result.overall_result ? (
+            <Text style={styles.detail}>
+              Overall: {result.overall_result.replace(/_/g, ' ')} — {result.overall_reason}
+            </Text>
+          ) : null}
           {result.ai_vs_label_discrepancy && (
             <Text style={styles.discrepancy}>Possible label or expiry-date tampering detected: {result.discrepancy_reason}</Text>
           )}

@@ -19,7 +19,7 @@ from ai_scanner.app.schemas import Condition, ProductCategory, ScanFeedbackPaylo
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
 from ai_scanner.app.services.audit import log_event
 from ai_scanner.app.services.openfoodfacts import lookup_barcode as openfoodfacts_lookup
-from ai_scanner.app.services.ocr import OcrExtraction, extract_from_bytes
+from ai_scanner.app.services.ocr import OcrExtraction, decode_barcodes, extract_from_bytes
 from ai_scanner.app.services.report_service import save_upload
 
 router = APIRouter()
@@ -150,6 +150,13 @@ def _packaging_condition_from_ai(ai_result: ScanResult) -> str:
     return "intact"
 
 
+def _barcode_identity_confirmed(barcode_product_name: str, ocr: OcrExtraction, ai_result: ScanResult) -> bool:
+    tokens = [t for t in re.findall(r"[a-z]{4,}", barcode_product_name.lower())]
+    evidence = " ".join([ocr.raw_text or "", ocr.product_name or "", ocr.brand or "", ai_result.product_name or ""]).lower()
+    evidence = re.sub(r"[^a-z]", "", evidence)
+    return any(t in evidence for t in tokens) if tokens else True
+
+
 def _enrich_findings(
     ai_result: ScanResult,
     ocr: OcrExtraction,
@@ -173,7 +180,7 @@ def _enrich_findings(
     if barcode_code and barcode_product_name and ocr.product_name:
         if _normalize_name(barcode_product_name) not in _normalize_name(ocr.product_name) and _normalize_name(ocr.product_name) not in _normalize_name(barcode_product_name):
             findings.append(
-                f"Barcode lookup product '{barcode_product_name}' does not match label product '{ocr.product_name}'; possible counterfeit or barcode mismatch."
+                f"Barcode/label mismatch: barcode lookup product '{barcode_product_name}' does not match label product '{ocr.product_name}'; manual verification required (not proof of counterfeit)."
             )
             ai_result.condition = Condition.SUSPICIOUS
             ai_result.confidence = max(ai_result.confidence, 0.80)
@@ -184,19 +191,70 @@ def _enrich_findings(
     findings_text = " ".join(findings).lower()
     damage_keywords = ["tear", "hole", "dent", "swelling", "leak", "crack", "rupture", "puncture", "broken seal"]
     contamination_keywords = ["mould", "mold", "discolouration", "discoloration", "fungus", "slime", "off smell"]
-    if any(k in findings_text for k in damage_keywords):
+    if any(re.search(rf"\b{k}\b", findings_text) for k in damage_keywords):
         findings.append("Possible packaging damage detected — inspect manually.")
-    if any(k in findings_text for k in contamination_keywords):
+    if any(re.search(rf"\b{k}\b", findings_text) for k in contamination_keywords):
         findings.append("Possible contamination detected — inspect manually.")
 
     packaging_condition = _packaging_condition_from_ai(ai_result)
     findings.append(f"Packaging condition: {packaging_condition}")
+
+    if barcode_code and barcode_product_name and not _barcode_identity_confirmed(barcode_product_name, ocr, ai_result):
+        findings.append(
+            f"Barcode/label mismatch: barcode product '{barcode_product_name}' could not be confirmed from the photo or label text; manual verification required (not proof of counterfeit)."
+        )
+
+    if barcode_code:
+        findings.append("Barcode/QR identifies the product only; it is not proof of safety or authenticity.")
 
     # Cautious final statement: image analysis is never proof of safety or tampering.
     if not ocr.raw_text or len(ocr.raw_text.strip()) < 10:
         findings.append("Limited label information — manual verification recommended.")
 
     return findings
+
+
+PACKAGED_CATEGORIES = {
+    ProductCategory.PACKAGED, ProductCategory.DAIRY, ProductCategory.BEVERAGE,
+    ProductCategory.FROZEN, ProductCategory.DRY,
+}
+
+
+def _overall_result(
+    ai_result: ScanResult,
+    ocr: OcrExtraction,
+    barcode_code: Optional[str],
+    expiry_date: Optional[datetime],
+    discrepancy_reason: Optional[str],
+    category: Optional[ProductCategory],
+):
+    """Fuse visual AI, barcode/QR and OCR evidence into a cautious overall result."""
+    label_readable = bool(ocr.raw_text and len(ocr.raw_text.strip()) >= 10)
+    ai_identified = bool(ai_result.product_name) and ai_result.product_name != "unknown product"
+    text = " ".join(ai_result.findings or []).lower()
+
+    if not label_readable and not barcode_code and (not ai_identified or ai_result.confidence < 0.5):
+        return "INSUFFICIENT_DATA", "Product could not be identified from photo, barcode or label; rescan or inspect manually."
+    if expiry_date and expiry_date < datetime.utcnow():
+        return "WARNING", "Printed expiry date has passed."
+    packaged = category in PACKAGED_CATEGORIES
+    if "possible packaging damage" in text or "possible contamination" in text:
+        if packaged:
+            return "REVIEW", "Visual damage/contamination indicators on printed packaging (unconfirmed); inspect manually."
+        return "WARNING", "Visible damage or contamination indicators; inspect manually."
+    if ai_result.condition == Condition.EXPIRED:
+        if packaged:
+            return "REVIEW", "Visual AI flagged spoilage appearance on sealed packaging, which a camera cannot confirm; inspect manually."
+        return "WARNING", "Visual AI indicates spoilage appearance; inspect manually."
+    if discrepancy_reason or "mismatch" in text or ai_result.condition == Condition.SUSPICIOUS:
+        return "REVIEW", discrepancy_reason or "Evidence is inconsistent or suspicious; manual review required."
+    if ai_result.condition == Condition.NEAR_EXPIRY:
+        return "REVIEW", "Product is near its expiry date."
+    if packaged and not expiry_date:
+        return "REVIEW", "Expiry/best-before date not readable; check the label manually."
+    if ai_result.confidence < 0.85:
+        return "REVIEW", "AI confidence below pass threshold; manual verification recommended."
+    return "PASS_NO_VISIBLE_ANOMALY", "No visible anomaly detected. This is not a guarantee of food safety."
 
 
 @router.post("/analyze", response_model=ScanRead)
@@ -225,8 +283,17 @@ async def analyze_image(
         await image.seek(0)
         ocr = extract_from_bytes(image_bytes)
     except Exception:
+        image_bytes = b""
         ocr = OcrExtraction()
+    decoded = decode_barcodes(image_bytes) if image_bytes and not barcode_code else []
+    if decoded:
+        ocr.barcode = decoded[0]
+        if "barcode" not in ocr.fields:
+            ocr.fields.append("barcode")
 
+    if ocr.label_confidence < 0.7:
+        ocr.product_name = None
+        ocr.brand = None
     barcode_code = _coalesce_field(barcode_code, ocr.barcode)
     batch_number = _coalesce_field(batch_number, ocr.batch_number)
     production_date = _coalesce_field(production_date, ocr.production_date)
@@ -273,6 +340,11 @@ async def analyze_image(
         ai_result.condition, ocr_expiry, production_date, raw_text=ocr.raw_text
     )
 
+    overall, overall_reason = _overall_result(
+        ai_result, ocr, barcode_code, expiry_date, discrepancy_reason, product_category
+    )
+    ai_result.findings = [f"Overall result: {overall.replace('_', ' ')} - {overall_reason}"] + list(ai_result.findings or [])
+
     scan = Scan(
         id=uuid.uuid4(),
         product_id=product_id,
@@ -310,12 +382,13 @@ async def analyze_image(
 
     # Attach extra fields to the ORM instance for the response without adding DB columns.
     # Pydantic reads these as attributes.
-    brand = brand or scan_product_name
     packaging_condition = _packaging_condition_from_ai(ai_result)
     scan.brand = brand
     scan.packaging_condition = packaging_condition
     scan.label_confidence = ocr.label_confidence
     scan.detected_fields = ocr.fields
+    scan.overall_result = overall
+    scan.overall_reason = overall_reason
 
     log_event(
         action="scan_created",

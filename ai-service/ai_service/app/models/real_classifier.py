@@ -306,7 +306,7 @@ class RealProductPipeline:
 
         return ScanResult(
             condition=condition,
-            confidence=round(confidence, 3),
+            confidence=round(min(max(confidence, 0.0), 1.0), 3),
             product_name=product_name,
             category=category,
             packaging_type=packaging_type,

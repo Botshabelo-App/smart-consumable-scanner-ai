@@ -177,6 +177,8 @@ class ScanRead(BaseModel):
     expiry_date: Optional[datetime] = None
     ai_vs_label_discrepancy: bool = False
     discrepancy_reason: Optional[str] = None
+    overall_result: Optional[str] = None
+    overall_reason: Optional[str] = None
     image_path: Optional[str] = None
     inspector_name: Optional[str] = None
     latitude: Optional[float] = None

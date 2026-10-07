@@ -1,0 +1,11 @@
+{$DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 25MB
+	}
+	reverse_proxy nginx:80
+	log {
+		output stdout
+		format json
+	}
+}

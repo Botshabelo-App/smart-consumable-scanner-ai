@@ -13,7 +13,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ai_scanner/ ./ai_scanner/
-COPY alembic.ini* ./ 2>/dev/null || true
 
 EXPOSE 8000
 

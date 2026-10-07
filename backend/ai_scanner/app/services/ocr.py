@@ -301,5 +301,23 @@ class OcrEngine:
 extract_from_image = OcrEngine().extract
 
 
+def decode_barcodes(content: bytes) -> List[str]:
+    """Decode standard 1D/2D symbols (EAN/UPC/Code128/QR/DataMatrix) from the photo pixels."""
+    try:
+        import zxingcpp
+    except ImportError:
+        return []
+    try:
+        img = PILImage.open(BytesIO(content))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+        results = zxingcpp.read_barcodes(img)
+        if not results:
+            results = zxingcpp.read_barcodes(ImageOps.autocontrast(img.convert("L")))
+        return [r.text for r in results if r.text]
+    except Exception:
+        return []
+
+
 def extract_from_bytes(content: bytes) -> OcrExtraction:
-    return extract_from_image(PILImage.open(BytesIO(content)))
+    img = PILImage.open(BytesIO(content))
+    return extract_from_image(ImageOps.exif_transpose(img))

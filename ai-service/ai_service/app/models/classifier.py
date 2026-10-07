@@ -19,6 +19,8 @@ def _build_classifier():
         from ai_service.app.models.real_classifier import RealProductPipeline
         return RealProductPipeline()
     except Exception as exc:
+        if os.environ.get("AI_STRICT_MODE", "false").lower() == "true":
+            raise RuntimeError(f"Real AI pipeline unavailable: {exc}") from exc
         print(f"Could not load RealProductPipeline ({exc}); falling back to dummy classifier.")
         from ai_service.app.models.dummy_classifier import ConsumableClassifier
         return ConsumableClassifier()
