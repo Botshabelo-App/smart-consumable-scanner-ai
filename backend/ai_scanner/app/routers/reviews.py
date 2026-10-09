@@ -15,8 +15,23 @@ from ai_scanner.app.db.models import ReviewRequest, Scan
 from ai_scanner.app.dependencies import require_role, require_user
 from ai_scanner.app.schemas import ReviewRequestCreate, ReviewRequestRead, ReviewRequestUpdate, ReviewStatus
 from ai_scanner.app.services.audit import log_event
+from ai_scanner.app.services.inspection import get_scan_for_user, is_global_admin
 
 router = APIRouter()
+
+_SCAN_REVIEW_STATUS = {
+    ReviewStatus.APPROVED: "confirmed",
+    ReviewStatus.REJECTED: "rejected",
+    ReviewStatus.ESCALATED: "escalated",
+    ReviewStatus.PENDING: "awaiting_review",
+}
+
+
+def _review_query_for_user(db: Session, user):
+    q = db.query(ReviewRequest).join(Scan, ReviewRequest.scan_id == Scan.id)
+    if not is_global_admin(user):
+        q = q.filter(Scan.company_id == user.company_id) if user.company_id else q.filter(ReviewRequest.user_id == user.id)
+    return q
 
 
 @router.post("/", response_model=ReviewRequestRead)
@@ -25,9 +40,11 @@ def create_review_request(
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    scan = db.query(Scan).filter(Scan.id == payload.scan_id).first()
+    scan = get_scan_for_user(db, user, payload.scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
+    if scan.review_status in (None, "not_required"):
+        scan.review_status = "awaiting_review"
     r = ReviewRequest(
         scan_id=payload.scan_id,
         user_id=user.id,
@@ -53,7 +70,7 @@ def list_review_requests(
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    q = db.query(ReviewRequest)
+    q = _review_query_for_user(db, user)
     if status:
         q = q.filter(ReviewRequest.status == status)
     return q.order_by(ReviewRequest.created_at.desc()).all()
@@ -66,11 +83,14 @@ def update_review_request(
     db: Session = Depends(get_db),
     user=Depends(require_user),
 ):
-    r = db.query(ReviewRequest).filter(ReviewRequest.id == review_id).first()
+    r = _review_query_for_user(db, user).filter(ReviewRequest.id == review_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Review request not found")
+    previous = r.status
     if payload.status:
         r.status = payload.status
+        if r.scan:
+            r.scan.review_status = _SCAN_REVIEW_STATUS[payload.status]
     if payload.approved_label:
         r.approved_label = payload.approved_label
     if payload.reviewer_notes is not None:
@@ -84,7 +104,7 @@ def update_review_request(
         user_id=user.id,
         resource_type="review_request",
         resource_id=str(r.id),
-        details=f"approved_label={payload.approved_label}",
+        details=f"scan={r.scan_id}, from={previous.value if previous else None}, approved_label={payload.approved_label}, notes={payload.reviewer_notes!r}",
     )
     return r
 

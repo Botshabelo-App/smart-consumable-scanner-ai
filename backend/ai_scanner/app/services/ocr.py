@@ -7,7 +7,8 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
-from typing import List, Optional, Tuple
+import calendar
+from typing import Dict, List, Optional, Tuple
 
 import pytesseract
 from PIL import Image as PILImage
@@ -25,14 +26,137 @@ class OcrExtraction:
     expiry_date: Optional[datetime] = None
     label_confidence: float = 0.0
     fields: List[str] = field(default_factory=list)
+    # Every date found on the label with its original text and interpretation.
+    date_candidates: List[dict] = field(default_factory=list)
+    # detected | needs_verification per extracted field (missing fields are absent).
+    field_status: Dict[str, str] = field(default_factory=dict)
 
 
-_DATE_PATTERNS: List[Tuple[re.Pattern, str]] = [
-    (re.compile(r"(\d{4})[-/\.](\d{1,2})[-/\.](\d{1,2})"), "%Y-%m-%d"),
-    (re.compile(r"(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{4})"), "%d-%m-%Y"),
-    (re.compile(r"(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{2})"), "%d-%m-%y"),
-    (re.compile(r"(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{4})"), "%m-%d-%Y"),
+_MONTHS = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+_MON = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?"
+
+# (regex, format label). Order matters: full dates before month/year forms.
+_DATE_REGEXES: List[Tuple[re.Pattern, str]] = [
+    (re.compile(r"(?<!\d)(\d{4})[-/\.](\d{1,2})[-/\.](\d{1,2})(?!\d)"), "YYYY-MM-DD"),
+    (re.compile(r"(?<!\d)(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{4})(?!\d)"), "DD/MM/YYYY"),
+    (re.compile(r"(?<!\d)(\d{1,2})[-/\.](\d{1,2})[-/\.](\d{2})(?!\d)"), "DD/MM/YY"),
+    (re.compile(rf"(?<!\d)(\d{{1,2}})\s*[-/\. ]?\s*{_MON}\s*[-/\. ]?\s*(\d{{4}}|\d{{2}})(?!\d)", re.IGNORECASE), "DD MON YYYY"),
+    (re.compile(rf"\b{_MON}\s*[-/\. ]?\s*(\d{{4}})(?!\d)", re.IGNORECASE), "MON YYYY"),
+    (re.compile(r"(?<!\d)(\d{1,2})[-/\.](\d{4})(?!\d)"), "MM/YYYY"),
+    (re.compile(r"(?<![\d\-/\.])(\d{4})[-/\.](\d{1,2})(?![-/\.\d])"), "YYYY-MM"),
 ]
+
+_DATE_TYPE_KEYWORDS: List[Tuple[str, str]] = [
+    ("best_before", r"best\s*before|best\s*by|\bbb\b|\bbbe\b|\bb\.b\.?"),
+    ("expiry", r"use\s*by|expiry|expiration|expires|\bexp\b\.?|consume\s*(?:by|before)|sell\s*by"),
+    ("packaging", r"packed|packing\s*date|\bpkd\b|packaged"),
+    ("production", r"\bmfg\b|\bmfd\b|manufactur(?:ing|ed)|production|produced|\bprod\b|\bdom\b"),
+]
+
+
+def _month_end(year: int, month: int) -> datetime:
+    return datetime(year, month, calendar.monthrange(year, month)[1])
+
+
+def _interpret(fmt: str, groups: Tuple[str, ...]) -> Optional[Tuple[datetime, str, str]]:
+    """Return (date, status, note) or None if the text is not a plausible date."""
+    status, note = "detected", ""
+    try:
+        if fmt == "YYYY-MM-DD":
+            y, m, d = int(groups[0]), int(groups[1]), int(groups[2])
+        elif fmt in ("DD/MM/YYYY", "DD/MM/YY"):
+            d, m, y = int(groups[0]), int(groups[1]), int(groups[2])
+            if fmt == "DD/MM/YY":
+                y += 2000
+            if m > 12 and d <= 12:
+                d, m = m, d
+                status, note = "needs_verification", "Day/month order unclear; read as MM/DD."
+        elif fmt == "DD MON YYYY":
+            d, m, y = int(groups[0]), _MONTHS[groups[1].lower()[:3]], int(groups[2])
+            if y < 100:
+                y += 2000
+        elif fmt in ("MON YYYY", "MM/YYYY", "YYYY-MM"):
+            if fmt == "MON YYYY":
+                m, y = _MONTHS[groups[0].lower()[:3]], int(groups[1])
+            elif fmt == "MM/YYYY":
+                m, y = int(groups[0]), int(groups[1])
+            else:
+                y, m = int(groups[0]), int(groups[1])
+            if not (2000 <= y <= 2100 and 1 <= m <= 12):
+                return None
+            return _month_end(y, m), "detected", "Month/year only; read as the last day of that month."
+        else:
+            return None
+        if not 2000 <= y <= 2100:
+            return None
+        return datetime(y, m, d), status, note
+    except (ValueError, KeyError):
+        return None
+
+
+def _date_type_at(line: str, pos: int) -> Optional[str]:
+    """Label type of the closest keyword before `pos` (or anywhere in the line)."""
+    best: Optional[Tuple[int, str]] = None
+    fallback: Optional[str] = None
+    for dtype, pattern in _DATE_TYPE_KEYWORDS:
+        for m in re.finditer(pattern, line, re.IGNORECASE):
+            if m.start() <= pos and (best is None or m.start() > best[0]):
+                best = (m.start(), dtype)
+            fallback = fallback or dtype
+    return best[1] if best else fallback
+
+
+def find_dates(lines: List[str]) -> List[dict]:
+    """Find all dates in OCR lines, keeping the original text and the label type.
+
+    A label on a line without a date (e.g. "BEST BEFORE") applies to the next line.
+    Dates with no label are reported as "unlabelled" and are never assumed to be expiry.
+    """
+    out: List[dict] = []
+    pending_type: Optional[str] = None
+    for line in lines:
+        masked = line
+        found_in_line = False
+        for regex, fmt in _DATE_REGEXES:
+            for m in regex.finditer(masked):
+                parsed = _interpret(fmt, m.groups())
+                if not parsed:
+                    continue
+                value, status, note = parsed
+                dtype = _date_type_at(line, m.start()) or pending_type or "unlabelled"
+                if dtype == "unlabelled":
+                    status = "needs_verification"
+                    note = (note + " " if note else "") + "No label next to this date; not assumed to be the expiry date."
+                out.append({
+                    "type": dtype,
+                    "original_text": line.strip(),
+                    "matched_text": m.group(0).strip(),
+                    "format": fmt,
+                    "interpreted": value.date().isoformat(),
+                    "status": status,
+                    "note": note.strip(),
+                })
+                found_in_line = True
+                masked = masked[:m.start()] + " " * (m.end() - m.start()) + masked[m.end():]
+        if found_in_line:
+            pending_type = None
+        else:
+            pending_type = _date_type_at(line, len(line))
+    return out
+
+
+def pick_date(candidates: List[dict], types: Tuple[str, ...]) -> Tuple[Optional[datetime], Optional[str]]:
+    """First candidate of the given types, preferring confirmed readings."""
+    matches = [c for c in candidates if c["type"] in types]
+    matches.sort(key=lambda c: (types.index(c["type"]), c["status"] != "detected"))
+    if not matches:
+        return None, None
+    c = matches[0]
+    return datetime.fromisoformat(c["interpreted"]), c["status"]
+
 
 _LABEL_KEYWORDS = [
     r"best\s*before",
@@ -92,74 +216,25 @@ class OcrEngine:
         return any(re.search(kw, line, re.IGNORECASE) for kw in _LABEL_KEYWORDS)
 
     @staticmethod
-    def _extract_dates(line: str) -> Tuple[Optional[datetime], Optional[datetime]]:
-        expiry: Optional[datetime] = None
-        production: Optional[datetime] = None
-        low = line.lower()
-        is_expiry = any(
-            re.search(k, low)
-            for k in [
-                r"best\s*before",
-                r"best\s*by",
-                r"use\s*by",
-                r"expiry",
-                r"expiration",
-                r"exp\b",
-                r"bb\b",
-                r"consume\s*before",
-                r"sell\s*by",
-            ]
-        )
-        is_production = any(
-            re.search(k, low)
-            for k in [
-                r"mfg\b",
-                r"manufactur(?:ing|ed)",
-                r"production",
-                r"produced",
-                r"packed",
-                r"packing",
-            ]
-        )
-
-        for pattern, fmt in _DATE_PATTERNS:
-            for match in pattern.finditer(line):
-                try:
-                    groups = match.groups()
-                    candidate = datetime.strptime("-".join(groups), fmt)
-                except ValueError:
-                    continue
-                if candidate.year < 1950:
-                    candidate = candidate.replace(year=candidate.year + 100)
-                if candidate.year > 2100:
-                    continue
-                if is_expiry:
-                    expiry = expiry or candidate
-                elif is_production:
-                    production = production or candidate
-                else:
-                    if expiry is None or candidate > expiry:
-                        expiry = candidate
-        return production, expiry
-
-    @staticmethod
     def _extract_barcode(text: str) -> Optional[str]:
         for match in re.finditer(r"\b\d{8,14}\b", text):
             return match.group(0)
         return None
 
     @staticmethod
-    def _extract_batch(line: str) -> Optional[str]:
-        patterns = [
-            re.compile(r"(?:batch|lot)\s*(?:no\.?|number)?\s*[:\-]?\s*([A-Z0-9\-]{3,})", re.IGNORECASE),
-            re.compile(r"(?:batch|lot)[:\-]?\s*([A-Z0-9\-]{3,})", re.IGNORECASE),
-            re.compile(r"\b([A-Z]{1,3}\d{2,}[A-Z0-9]*)\b"),
+    def _extract_batch(line: str) -> Tuple[Optional[str], Optional[str]]:
+        """Return (batch, status); unlabelled code-like text needs verification."""
+        labelled = [
+            re.compile(r"(?:batch|lot|b/n|l/n)\s*(?:no\.?|number|code)?\s*[:\-#]?\s*([A-Z0-9][A-Z0-9\-/]{2,})", re.IGNORECASE),
         ]
-        for pattern in patterns:
+        for pattern in labelled:
             match = pattern.search(line)
             if match:
-                return match.group(1).strip()
-        return None
+                return match.group(1).strip(), "detected"
+        match = re.search(r"\b([A-Z]{1,3}\d{2,}[A-Z0-9]*)\b", line)
+        if match and not re.search(r"\d{1,2}[-/\.]\d{1,2}[-/\.]\d{2,4}", line):
+            return match.group(1).strip(), "needs_verification"
+        return None, None
 
     @staticmethod
     def _looks_like_product_word(word: str) -> bool:
@@ -254,34 +329,40 @@ class OcrEngine:
             raw_text = "\n".join(lines)
             avg_conf = sum(w["conf"] for w in words) / len(words) if words else 0.0
 
-            production_date: Optional[datetime] = None
-            expiry_date: Optional[datetime] = None
-            batch_number: Optional[str] = None
             detected_fields: List[str] = []
+            field_status: Dict[str, str] = {}
 
+            date_candidates = find_dates(lines)
+            expiry_date, expiry_status = pick_date(date_candidates, ("expiry", "best_before"))
+            production_date, production_status = pick_date(date_candidates, ("production",))
+            if expiry_date:
+                detected_fields.append("expiry_date")
+                field_status["expiry_date"] = expiry_status
+            if production_date:
+                detected_fields.append("production_date")
+                field_status["production_date"] = production_status
+
+            batch_number: Optional[str] = None
             for line in lines:
-                prod, exp = self._extract_dates(line)
-                if prod and production_date is None:
-                    production_date = prod
-                    detected_fields.append("production_date")
-                if exp and expiry_date is None:
-                    expiry_date = exp
-                    detected_fields.append("expiry_date")
-                if batch_number is None:
-                    b = self._extract_batch(line)
-                    if b:
-                        batch_number = b
-                        detected_fields.append("batch_number")
+                b, b_status = self._extract_batch(line)
+                if b and (batch_number is None or (b_status == "detected" and field_status.get("batch_number") != "detected")):
+                    batch_number = b
+                    field_status["batch_number"] = b_status
+            if batch_number:
+                detected_fields.append("batch_number")
 
             brand = self._best_brand(lines)
             product_name = self._best_product_name(lines, brand=brand) or brand
             barcode = self._extract_barcode(raw_text)
             if barcode:
                 detected_fields.append("barcode")
+                field_status["barcode_code"] = "needs_verification"
             if product_name:
                 detected_fields.append("product_name")
+                field_status["product_name"] = "needs_verification"
             if brand:
                 detected_fields.append("brand")
+                field_status["brand"] = "needs_verification"
 
             return OcrExtraction(
                 raw_text=raw_text,
@@ -293,6 +374,8 @@ class OcrEngine:
                 expiry_date=expiry_date,
                 label_confidence=round(avg_conf / 100, 3),
                 fields=detected_fields,
+                date_candidates=date_candidates,
+                field_status=field_status,
             )
         except Exception:
             return OcrExtraction()

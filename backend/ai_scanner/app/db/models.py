@@ -3,8 +3,9 @@
 # This file is part of the Smart Consumable Scanner AI project.
 # Use is subject to the project licence terms.
 
+import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, String, Text, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -136,7 +137,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
-    scans = relationship("Scan", back_populates="inspector")
+    scans = relationship("Scan", back_populates="inspector", foreign_keys="Scan.inspector_id")
     company = relationship("Company", back_populates="users", foreign_keys=[company_id])
     branch = relationship("Branch", back_populates="users", foreign_keys=[branch_id])
 
@@ -179,11 +180,126 @@ class Scan(Base):
     override_image_paths = Column(Text, nullable=True)
 
     inspector_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    inspector = relationship("User", back_populates="scans")
+    inspector = relationship("User", back_populates="scans", foreign_keys=[inspector_id])
+
+    # Stage 1: full inspection record (migration 001)
+    brand = Column(String, nullable=True)
+    packaging_condition = Column(String, nullable=True)
+    label_confidence = Column(Float, nullable=True)
+    detected_fields = Column(Text, nullable=True)  # comma-separated
+    overall_result = Column(String(32), nullable=True)
+    overall_reason = Column(Text, nullable=True)
+    ocr_raw_text = Column(Text, nullable=True)  # original OCR text, never edited
+    date_details = Column(Text, nullable=True)  # JSON list of dates found on the label
+    field_status = Column(Text, nullable=True)  # JSON {field: detected|needs_verification|entered|corrected}
+    review_status = Column(String(32), nullable=True)  # not_required|awaiting_review|escalated|confirmed|rejected
+    final_result = Column(String(32), nullable=True)
+    final_decision = Column(String(32), nullable=True)
+    signed_off_at = Column(DateTime(timezone=True), nullable=True)
+    signed_off_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
+    company = relationship("Company")
+    branch = relationship("Branch")
+    signer = relationship("User", foreign_keys=[signed_off_by])
+    corrections = relationship("ScanCorrection", order_by="ScanCorrection.created_at", back_populates="scan")
+    signoffs = relationship("InspectionSignoff", order_by="InspectionSignoff.created_at", back_populates="scan")
+    reviews = relationship("ReviewRequest", order_by="ReviewRequest.created_at", foreign_keys="ReviewRequest.scan_id", viewonly=True)
 
     @property
     def inspector_name(self) -> str | None:
         return self.inspector.full_name if self.inspector else None
+
+    @property
+    def inspector_email(self) -> str | None:
+        return self.inspector.email if self.inspector else None
+
+    @property
+    def company_name(self) -> str | None:
+        return self.company.name if self.company else None
+
+    @property
+    def branch_name(self) -> str | None:
+        return self.branch.name if self.branch else None
+
+    @property
+    def signed_off_by_name(self) -> str | None:
+        return self.signer.full_name if self.signer else None
+
+    @property
+    def field_status_map(self) -> dict:
+        try:
+            return json.loads(self.field_status or "{}")
+        except ValueError:
+            return {}
+
+    @property
+    def date_flags(self) -> list[str]:
+        """Date problems computed from the current (possibly corrected) dates."""
+        now = datetime.now(timezone.utc)
+
+        def aware(d):
+            return d if d is None or d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+        exp, prod = aware(self.expiry_date), aware(self.production_date)
+        flags = []
+        if exp and exp < now:
+            flags.append("expired")
+        elif exp and exp <= now + timedelta(days=7):
+            flags.append("near_expiry")
+        if prod and exp and prod > exp:
+            flags.append("production_after_expiry")
+        if prod and prod > now:
+            flags.append("production_in_future")
+        if exp and exp > now + timedelta(days=1825):
+            flags.append("expiry_more_than_5_years_ahead")
+        if self.field_status_map.get("expiry_date") == "needs_verification":
+            flags.append("expiry_needs_verification")
+        return flags
+
+
+class ScanCorrection(Base):
+    """Audited change to an inspection field; the original OCR stays on the scan."""
+
+    __tablename__ = "scan_corrections"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scan_id = Column(PGUUID(as_uuid=True), ForeignKey("scans.id"), nullable=False, index=True)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    field = Column(String(64), nullable=False)
+    original_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    scan = relationship("Scan", back_populates="corrections")
+    user = relationship("User")
+
+    @property
+    def user_name(self) -> str | None:
+        return self.user.full_name if self.user else None
+
+
+class InspectionSignoff(Base):
+    """Electronic acknowledgement by an authenticated user (not a certified digital signature)."""
+
+    __tablename__ = "inspection_signoffs"
+
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scan_id = Column(PGUUID(as_uuid=True), ForeignKey("scans.id"), nullable=False, index=True)
+    user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    full_name = Column(String, nullable=False)
+    typed_name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    role = Column(String, nullable=False)
+    decision = Column(String(32), nullable=False)
+    system_result = Column(String(32), nullable=True)
+    final_result = Column(String(32), nullable=True)
+    comments = Column(Text, nullable=True)
+    override_reason = Column(Text, nullable=True)
+    acknowledgement_text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    scan = relationship("Scan", back_populates="signoffs")
 
 
 class Report(Base):
@@ -191,11 +307,16 @@ class Report(Base):
 
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     report_id = Column(String, unique=True, nullable=False)
-    scan_id = Column(PGUUID(as_uuid=True), ForeignKey("scans.id"), nullable=False)
+    scan_id = Column(PGUUID(as_uuid=True), ForeignKey("scans.id"), nullable=True)  # null for multi-inspection reports
     notes = Column(Text, nullable=True)
     file_url = Column(String, nullable=True)
     generated_at = Column(DateTime(timezone=True), default=utc_now)
     signature_data = Column(Text, nullable=True)
+    company_id = Column(PGUUID(as_uuid=True), ForeignKey("companies.id"), nullable=True)
+    created_by = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    report_type = Column(String(16), nullable=True)  # single | batch
+    format = Column(String(8), nullable=True)
+    filters = Column(Text, nullable=True)  # JSON
 
     scan = relationship("Scan")
 
@@ -219,6 +340,16 @@ class ReviewRequest(Base):
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
     scan = relationship("Scan", foreign_keys=[scan_id])
+    requester = relationship("User", foreign_keys=[user_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+    @property
+    def requester_name(self) -> str | None:
+        return self.requester.full_name if self.requester else None
+
+    @property
+    def reviewer_name(self) -> str | None:
+        return self.reviewer.full_name if self.reviewer else None
 
 
 class AuditLog(Base):

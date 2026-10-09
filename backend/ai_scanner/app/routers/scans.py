@@ -3,21 +3,28 @@
 # This file is part of the Smart Consumable Scanner AI project.
 # Use is subject to the project licence terms.
 
+import json
 import re
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
-from ai_scanner.app.db.models import Barcode, Product, Scan, User
-from ai_scanner.app.dependencies import require_admin, require_user
+from ai_scanner.app.db.models import Barcode, InspectionSignoff, Product, Scan, ScanCorrection, User
+from ai_scanner.app.dependencies import require_user
 from ai_scanner.app.limiter import limiter
-from ai_scanner.app.schemas import Condition, ProductCategory, ScanFeedbackPayload, ScanRead, ScanResult
+from ai_scanner.app.schemas import (
+    Condition, InspectionFilters, ProductCategory, ScanCorrectionCreate, ScanDetail,
+    ScanFeedbackPayload, ScanRead, ScanResult, SignoffCreate,
+)
 from ai_scanner.app.services.ai_client import AIAnalysisError, ai_client
 from ai_scanner.app.services.audit import log_event
+from ai_scanner.app.services.inspection import (
+    ACKNOWLEDGEMENT_TEXT, ATTENTION_RESULTS, apply_filters, get_scan_for_user, scan_query_for_user,
+)
 from ai_scanner.app.services.openfoodfacts import lookup_barcode as openfoodfacts_lookup
 from ai_scanner.app.services.ocr import OcrExtraction, decode_barcodes, extract_from_bytes
 from ai_scanner.app.services.report_service import save_upload
@@ -228,6 +235,7 @@ def _overall_result(
     expiry_date: Optional[datetime],
     discrepancy_reason: Optional[str],
     category: Optional[ProductCategory],
+    expiry_unverified: bool = False,
 ):
     """Fuse visual AI, barcode/QR and OCR evidence into a cautious overall result."""
     label_readable = bool(ocr.raw_text and len(ocr.raw_text.strip()) >= 10)
@@ -251,6 +259,8 @@ def _overall_result(
         return "REVIEW", discrepancy_reason or "Evidence is inconsistent or suspicious; manual review required."
     if ai_result.condition == Condition.NEAR_EXPIRY:
         return "REVIEW", "Product is near its expiry date."
+    if expiry_unverified:
+        return "REVIEW", "Expiry/best-before date was read but needs verification; check the label manually."
     if packaged and not expiry_date:
         return "REVIEW", "Expiry/best-before date not readable; check the label manually."
     if ai_result.confidence < 0.85:
@@ -289,12 +299,24 @@ async def analyze_image(
     decoded = decode_barcodes(image_bytes) if image_bytes and not barcode_code else []
     if decoded:
         ocr.barcode = decoded[0]
+        ocr.field_status["barcode_code"] = "detected"
         if "barcode" not in ocr.fields:
             ocr.fields.append("barcode")
 
     if ocr.label_confidence < 0.7:
         ocr.product_name = None
         ocr.brand = None
+        ocr.field_status.pop("product_name", None)
+        ocr.field_status.pop("brand", None)
+
+    # Values typed by the inspector override OCR; record where each value came from.
+    field_status = dict(ocr.field_status)
+    for name, value in (
+        ("barcode_code", barcode_code), ("batch_number", batch_number), ("production_date", production_date),
+        ("expiry_date", expiry_date), ("product_name", product_name), ("brand", brand),
+    ):
+        if value is not None and value != "":
+            field_status[name] = "entered"
     barcode_code = _coalesce_field(barcode_code, ocr.barcode)
     batch_number = _coalesce_field(batch_number, ocr.batch_number)
     production_date = _coalesce_field(production_date, ocr.production_date)
@@ -335,14 +357,21 @@ async def analyze_image(
         product_category = product.category
 
     # Prefer user/OCR-provided product name over AI-derived one, since packaging text is authoritative.
-    scan_product_name = product_name or ai_result.product_name or (product.name if product else None)
+    scan_product_name = product_name or (product.name if product else None) or ai_result.product_name
+    if not product_name and scan_product_name:
+        # Barcode database names are identified; AI-only names are a visual guess.
+        field_status["product_name"] = "detected" if product and scan_product_name == product.name else "needs_verification"
+    if not brand and product and product.manufacturer:
+        brand = product.manufacturer.name
+        field_status["brand"] = "detected"
     ocr_expiry = expiry_date or (barcode_obj.expiry_date if barcode_obj else None)
     discrepancy_reason = _discrepancy_reason(
         ai_result.condition, ocr_expiry, production_date, raw_text=ocr.raw_text
     )
 
     overall, overall_reason = _overall_result(
-        ai_result, ocr, barcode_code, expiry_date, discrepancy_reason, product_category
+        ai_result, ocr, barcode_code, expiry_date, discrepancy_reason, product_category,
+        expiry_unverified=field_status.get("expiry_date") == "needs_verification",
     )
     ai_result.findings = [f"Overall result: {overall.replace('_', ' ')} - {overall_reason}"] + list(ai_result.findings or [])
 
@@ -369,6 +398,16 @@ async def analyze_image(
         latitude=latitude,
         longitude=longitude,
         inspector_id=user.id,
+        brand=brand,
+        packaging_condition=_packaging_condition_from_ai(ai_result),
+        label_confidence=ocr.label_confidence,
+        detected_fields=",".join(ocr.fields),
+        overall_result=overall,
+        overall_reason=overall_reason,
+        ocr_raw_text=ocr.raw_text or "",
+        date_details=json.dumps(ocr.date_candidates),
+        field_status=json.dumps(field_status),
+        review_status="awaiting_review" if overall in ATTENTION_RESULTS else "not_required",
     )
     db.add(scan)
     db.commit()
@@ -381,16 +420,6 @@ async def analyze_image(
     db.commit()
     db.refresh(scan)
 
-    # Attach extra fields to the ORM instance for the response without adding DB columns.
-    # Pydantic reads these as attributes.
-    packaging_condition = _packaging_condition_from_ai(ai_result)
-    scan.brand = brand
-    scan.packaging_condition = packaging_condition
-    scan.label_confidence = ocr.label_confidence
-    scan.detected_fields = ocr.fields
-    scan.overall_result = overall
-    scan.overall_reason = overall_reason
-
     log_event(
         action="scan_created",
         user_id=user.id,
@@ -402,33 +431,157 @@ async def analyze_image(
 
 
 def _scan_query_for_user(db: Session, user: User):
-    q = db.query(Scan)
-    if not _is_admin(user) and user.company_id:
-        q = q.filter(Scan.company_id == user.company_id)
-    return q
+    return scan_query_for_user(db, user)
 
 
 @router.get("/", response_model=List[ScanRead])
 def list_scans(
+    response: Response,
     limit: int = 100,
     offset: int = 0,
+    filters: InspectionFilters = Depends(),
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    return (
-        _scan_query_for_user(db, user)
-        .order_by(Scan.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    q = apply_filters(_scan_query_for_user(db, user), filters)
+    response.headers["X-Total-Count"] = str(q.count())
+    return q.order_by(Scan.created_at.desc()).offset(offset).limit(min(limit, 500)).all()
 
 
 @router.get("/{scan_id}", response_model=ScanRead)
 def get_scan(scan_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
-    scan = _scan_query_for_user(db, user).filter(Scan.id == uuid.UUID(scan_id)).first()
+    scan = get_scan_for_user(db, user, scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
+    return scan
+
+
+@router.get("/{scan_id}/detail", response_model=ScanDetail)
+def get_scan_detail(scan_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    """Inspection record with its full audit trail (corrections, reviews, sign-offs)."""
+    scan = get_scan_for_user(db, user, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return scan
+
+
+_DATE_FIELDS = {"production_date", "expiry_date"}
+
+
+def _parse_correction_value(field: str, value: Optional[str]):
+    if value is None or not value.strip():
+        return None
+    value = value.strip()
+    if field in _DATE_FIELDS:
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"):
+            try:
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                pass
+        raise HTTPException(status_code=422, detail=f"{field}: use YYYY-MM-DD or DD/MM/YYYY")
+    if field == "category":
+        try:
+            return ProductCategory(value.lower())
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"category: must be one of {[c.value for c in ProductCategory]}")
+    return value
+
+
+def _as_text(v) -> Optional[str]:
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.date().isoformat()
+    return v.value if hasattr(v, "value") else str(v)
+
+
+@router.post("/{scan_id}/corrections", response_model=ScanDetail)
+def correct_scan_field(
+    scan_id: str,
+    payload: ScanCorrectionCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    """Correct one field; the original value and OCR text are kept in the audit trail."""
+    scan = get_scan_for_user(db, user, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    if scan.signed_off_at and user.role.value not in {"administrator", "company_admin"}:
+        raise HTTPException(status_code=409, detail="Inspection is signed off; only an organisation admin can correct it")
+    new_value = _parse_correction_value(payload.field, payload.value)
+    original = getattr(scan, payload.field)
+    if _as_text(original) == _as_text(new_value):
+        raise HTTPException(status_code=422, detail="New value is the same as the current value")
+
+    db.add(ScanCorrection(
+        id=uuid.uuid4(), scan_id=scan.id, user_id=user.id, field=payload.field,
+        original_value=_as_text(original), new_value=_as_text(new_value), reason=payload.reason.strip(),
+    ))
+    setattr(scan, payload.field, new_value)
+    status_map = scan.field_status_map
+    status_map[payload.field] = "corrected"
+    scan.field_status = json.dumps(status_map)
+    if scan.review_status == "not_required":
+        scan.review_status = "awaiting_review"
+    db.commit()
+    db.refresh(scan)
+    log_event(
+        action="scan_corrected", user_id=user.id, resource_type="scan", resource_id=str(scan.id),
+        details=f"field={payload.field}, from={_as_text(original)!r}, to={_as_text(new_value)!r}, reason={payload.reason.strip()!r}",
+    )
+    return scan
+
+
+@router.post("/{scan_id}/signoff", response_model=ScanDetail)
+def sign_off_scan(
+    scan_id: str,
+    payload: SignoffCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_user),
+):
+    """Record the inspector's final decision with an electronic acknowledgement."""
+    scan = get_scan_for_user(db, user, scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    if not payload.acknowledged:
+        raise HTTPException(status_code=422, detail="acknowledged: you must confirm the acknowledgement statement")
+    if payload.typed_name.strip().lower() != (user.full_name or "").strip().lower():
+        raise HTTPException(status_code=422, detail="typed_name: type your full name exactly as on your account")
+
+    system_result = scan.overall_result
+    if payload.decision == "confirm":
+        if payload.final_result and payload.final_result != system_result:
+            raise HTTPException(status_code=422, detail="final_result differs from the system result; use decision=override")
+        final_result = system_result
+    elif payload.decision == "override":
+        if not payload.final_result or payload.final_result == system_result:
+            raise HTTPException(status_code=422, detail="final_result: choose a result different from the system result")
+        if not payload.override_reason or len(payload.override_reason.strip()) < 5:
+            raise HTTPException(status_code=422, detail="override_reason: explain why the result is overridden")
+        final_result = payload.final_result
+    else:
+        final_result = None
+
+    signoff = InspectionSignoff(
+        id=uuid.uuid4(), scan_id=scan.id, user_id=user.id, full_name=user.full_name,
+        typed_name=payload.typed_name.strip(), email=user.email, role=user.role.value,
+        decision=payload.decision, system_result=system_result, final_result=final_result,
+        comments=payload.comments, override_reason=payload.override_reason,
+        acknowledgement_text=ACKNOWLEDGEMENT_TEXT,
+    )
+    db.add(signoff)
+    db.flush()
+    scan.final_decision = payload.decision
+    scan.final_result = final_result
+    scan.signed_off_at = signoff.created_at or datetime.utcnow()
+    scan.signed_off_by = user.id
+    scan.review_status = "escalated" if payload.decision == "escalate" else "confirmed"
+    db.commit()
+    db.refresh(scan)
+    log_event(
+        action=f"scan_signoff_{payload.decision}", user_id=user.id, resource_type="scan", resource_id=str(scan.id),
+        details=f"system_result={system_result}, final_result={final_result}",
+    )
     return scan
 
 
@@ -439,7 +592,7 @@ def feedback(
     db: Session = Depends(get_db),
     user: User = Depends(require_user),
 ):
-    scan = _scan_query_for_user(db, user).filter(Scan.id == uuid.UUID(scan_id)).first()
+    scan = get_scan_for_user(db, user, scan_id)
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     scan.inspector_accepted = payload.accepted

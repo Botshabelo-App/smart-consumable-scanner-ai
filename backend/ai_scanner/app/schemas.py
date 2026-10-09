@@ -5,10 +5,10 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserRole(str, Enum):
@@ -50,6 +50,7 @@ class ReviewStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    ESCALATED = "escalated"
 
 
 class UserCreate(BaseModel):
@@ -185,6 +186,21 @@ class ScanRead(BaseModel):
     longitude: Optional[float] = None
     created_at: datetime
 
+    # Stage 1: full inspection record
+    inspector_email: Optional[str] = None
+    inspector_id: Optional[UUID] = None
+    company_name: Optional[str] = None
+    branch_name: Optional[str] = None
+    ocr_raw_text: Optional[str] = None
+    date_details: List[Dict[str, Any]] = []
+    field_status: Dict[str, str] = {}
+    date_flags: List[str] = []
+    review_status: Optional[str] = None
+    final_result: Optional[str] = None
+    final_decision: Optional[str] = None
+    signed_off_at: Optional[datetime] = None
+    signed_off_by_name: Optional[str] = None
+
     # Phase 6 feedback
     inspector_accepted: Optional[bool] = None
     override_condition: Optional[Condition] = None
@@ -206,6 +222,19 @@ class ScanRead(BaseModel):
             return [line for line in v.split(",") if line]
         return v or []
 
+    @field_validator("date_details", "field_status", mode="before")
+    @classmethod
+    def _parse_json(cls, v, info):
+        import json
+
+        empty = [] if info.field_name == "date_details" else {}
+        if isinstance(v, str):
+            try:
+                return json.loads(v) or empty
+            except ValueError:
+                return empty
+        return v or empty
+
     @field_validator("override_image_paths", mode="before")
     @classmethod
     def _split_override_images(cls, v):
@@ -214,6 +243,98 @@ class ScanRead(BaseModel):
         return v or []
 
     model_config = ConfigDict(from_attributes=True)
+
+
+InspectionResult = Literal["PASS_NO_VISIBLE_ANOMALY", "WARNING", "REVIEW", "INSUFFICIENT_DATA"]
+CorrectableField = Literal[
+    "product_name", "brand", "barcode_code", "batch_number", "production_date",
+    "expiry_date", "category", "packaging_type",
+]
+
+
+class ScanCorrectionCreate(BaseModel):
+    field: CorrectableField
+    value: Optional[str] = None
+    reason: str = Field(..., min_length=3, max_length=2000)
+
+
+class ScanCorrectionRead(BaseModel):
+    id: UUID
+    field: str
+    original_value: Optional[str] = None
+    new_value: Optional[str] = None
+    reason: str
+    user_id: UUID
+    user_name: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SignoffCreate(BaseModel):
+    decision: Literal["confirm", "override", "escalate"]
+    final_result: Optional[InspectionResult] = None
+    typed_name: str = Field(..., min_length=2, max_length=200)
+    acknowledged: bool
+    comments: Optional[str] = Field(None, max_length=4000)
+    override_reason: Optional[str] = Field(None, max_length=4000)
+
+
+class SignoffRead(BaseModel):
+    id: UUID
+    scan_id: UUID
+    user_id: UUID
+    full_name: str
+    typed_name: str
+    email: str
+    role: str
+    decision: str
+    system_result: Optional[str] = None
+    final_result: Optional[str] = None
+    comments: Optional[str] = None
+    override_reason: Optional[str] = None
+    acknowledgement_text: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ScanDetail(ScanRead):
+    corrections: List[ScanCorrectionRead] = []
+    signoffs: List[SignoffRead] = []
+    reviews: List["ReviewRequestRead"] = []
+
+
+class InspectionFilters(BaseModel):
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    branch_id: Optional[UUID] = None
+    inspector_id: Optional[UUID] = None
+    product: Optional[str] = None
+    result: Optional[InspectionResult] = None
+    review_status: Optional[str] = None
+
+
+class BatchReportCreate(InspectionFilters):
+    notes: Optional[str] = None
+    limit: int = Field(500, ge=1, le=2000)
+
+
+class DashboardSummary(BaseModel):
+    total: int
+    today: int
+    pass_count: int
+    warning: int
+    review: int
+    insufficient_data: int
+    expired_products: int
+    awaiting_review: int
+    signed_off: int
+    recent: List[Dict[str, Any]]
+    by_site: List[Dict[str, Any]]
+    by_inspector: List[Dict[str, Any]]
+    trend: List[Dict[str, Any]]
+    filters: Dict[str, Any]
 
 
 class ReportCreate(BaseModel):
@@ -225,7 +346,9 @@ class ReportCreate(BaseModel):
 
 class ReportRead(BaseModel):
     id: UUID
-    scan_id: UUID
+    scan_id: Optional[UUID] = None
+    report_type: Optional[str] = None
+    format: Optional[str] = None
     report_id: str
     notes: Optional[str]
     file_url: Optional[str]
@@ -432,6 +555,8 @@ class ReviewRequestRead(BaseModel):
     reviewed_at: Optional[datetime] = None
     approved_label: Optional[Condition] = None
     created_at: datetime
+    requester_name: Optional[str] = None
+    reviewer_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -540,3 +665,6 @@ class PilotSuccessMetrics(BaseModel):
     average_inspection_time_ms: float
     report_generation_success_rate: float
     offline_sync_reliability: float
+
+
+ScanDetail.model_rebuild()
