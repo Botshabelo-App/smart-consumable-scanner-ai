@@ -15,11 +15,13 @@ import HistoryScreen from '../screens/HistoryScreen';
 import LoginScreen from '../screens/LoginScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import ReviewScreen from '../screens/ReviewScreen';
+import ScanDetailScreen from '../screens/ScanDetailScreen';
 import ScanScreen from '../screens/ScanScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
+  ScanDetail: { scanId: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -45,7 +47,10 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isLoggedIn ? (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <>
+            <Stack.Screen name="MainTabs" component={MainTabs} />
+            <Stack.Screen name="ScanDetail" component={ScanDetailScreen} options={{ headerShown: true, title: 'Inspection detail' }} />
+          </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
         )}

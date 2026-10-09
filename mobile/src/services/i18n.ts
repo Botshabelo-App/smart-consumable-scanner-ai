@@ -3,6 +3,7 @@
 // This file is part of the Smart Consumable Scanner AI project.
 // Use is subject to the project licence terms.
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 
 import { supportedLanguages } from '../config/brand';
@@ -65,4 +66,34 @@ export function speak(condition: Condition, lang: string) {
     pitch: 1,
     rate: 0.95,
   });
+}
+
+const VOICE_ENABLED_KEY = '@SmartScanner:voiceEnabled';
+
+export async function getVoiceEnabled(): Promise<boolean> {
+  const v = await AsyncStorage.getItem(VOICE_ENABLED_KEY);
+  return v !== 'false';
+}
+
+export async function setVoiceEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(VOICE_ENABLED_KEY, enabled ? 'true' : 'false');
+  if (!enabled) Speech.stop();
+}
+
+// Spoken in English only: no verified translations exist yet for the overall results.
+const resultVoice: Record<string, string> = {
+  PASS_NO_VISIBLE_ANOMALY: 'Pass. No visible problem detected. This is not a guarantee of food safety.',
+  WARNING: 'Warning. Do not use this product until it has been checked.',
+  REVIEW: 'Review needed. Please check this product and its label manually.',
+  INSUFFICIENT_DATA: 'Not enough information. Please rescan or inspect manually.',
+};
+
+/** Speak the overall inspection result (PASS / WARNING / REVIEW) if voice is switched on. */
+export async function speakResult(overallResult: string | undefined, reason?: string, extra?: string[]): Promise<void> {
+  if (!overallResult || !(await getVoiceEnabled())) return;
+  const parts = [resultVoice[overallResult] || `Result: ${overallResult.replace(/_/g, ' ').toLowerCase()}.`];
+  if (overallResult !== 'PASS_NO_VISIBLE_ANOMALY' && reason) parts.push(reason);
+  (extra || []).forEach((e) => parts.push(e));
+  Speech.stop();
+  Speech.speak(parts.join(' '), { language: 'en-ZA', pitch: 1, rate: 0.95 });
 }

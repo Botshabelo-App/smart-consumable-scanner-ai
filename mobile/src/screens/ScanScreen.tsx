@@ -24,7 +24,11 @@ import {
 import { defaultLanguage } from '../config/brand';
 import { LanguageSelector } from '../components/LanguageSelector';
 import { analyzeImage, lookupBarcode, ScanPayload, submitScanFeedback } from '../services/api';
-import { getVoiceMessage } from '../services/i18n';
+import { useNavigation } from '@react-navigation/native';
+
+import InspectionFields, { ResultBanner } from '../components/InspectionFields';
+import { errorMessage } from '../services/api';
+import { getVoiceEnabled, setVoiceEnabled, speakResult } from '../services/i18n';
 import { Condition, ScanResult } from '../types';
 
 const conditionColor: Record<Condition, string> = {
@@ -55,6 +59,11 @@ function getResultMessage(result: ScanResult): string {
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
+  const navigation = useNavigation<any>();
+  const [voiceOn, setVoiceOn] = useState(true);
+  useEffect(() => {
+    getVoiceEnabled().then(setVoiceOn);
+  }, []);
   const cameraRef = useRef<CameraView>(null);
   const scrollRef = useRef<ScrollView>(null);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -94,15 +103,11 @@ export default function ScanScreen() {
       setProductionDate(result.production_date ? formatDate(result.production_date) : productionDate);
       setExpiryDate(result.expiry_date ? formatDate(result.expiry_date) : expiryDate);
 
-      const message = getResultMessage(result);
-      const voiceText = getVoiceMessage(result.condition, language);
-      // Use expo-speech directly with the selected BCP-47 locale.
-      const SpeechModule = require('expo-speech');
-      SpeechModule.speak(voiceText, {
-        language: language === 'en' ? 'en-ZA' : language,
-        pitch: 1,
-        rate: 0.95,
-      });
+      speakResult(
+        result.overall_result,
+        result.overall_reason,
+        (result.date_flags || []).includes('expired') ? ['The printed date has passed.'] : []
+      );
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,7 +224,7 @@ export default function ScanScreen() {
       const data = await analyzeImage(payload);
       setResult(data);
     } catch (e: any) {
-      Alert.alert('Analysis error', e?.response?.data?.detail || e.message);
+      Alert.alert('Analysis error', errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -297,6 +302,10 @@ export default function ScanScreen() {
       />
       <View style={styles.row}>
         <Button title="Capture" onPress={takePicture} disabled={!cameraReady} />
+        <View style={styles.continuousRow}>
+          <Text>Voice announcements</Text>
+          <Switch value={voiceOn} onValueChange={(v) => { setVoiceOn(v); setVoiceEnabled(v); }} />
+        </View>
         <View style={styles.continuousRow}>
           <Text>Continuous</Text>
           <Switch value={continuous} onValueChange={setContinuous} />
@@ -389,16 +398,9 @@ export default function ScanScreen() {
           {result.ai_vs_label_discrepancy && (
             <Text style={styles.discrepancy}>Possible label or expiry-date tampering detected: {result.discrepancy_reason}</Text>
           )}
-          {result.brand ? <Text style={styles.detail}>Brand: {result.brand}</Text> : null}
-          <Text style={styles.detail}>Product: {result.product_name || 'Unknown'}</Text>
-          {result.barcode_code ? <Text style={styles.detail}>Barcode: {result.barcode_code}</Text> : null}
-          {result.batch_number ? <Text style={styles.detail}>Batch/Lot: {result.batch_number}</Text> : null}
-          {result.production_date ? (
-            <Text style={styles.detail}>Manufacturing date: {formatDate(result.production_date)}</Text>
-          ) : null}
-          {result.expiry_date ? (
-            <Text style={styles.detail}>Expiry date: {formatDate(result.expiry_date)}</Text>
-          ) : null}
+          <ResultBanner scan={result} />
+          <InspectionFields scan={result} />
+          <Button title="Open full record (review, correct, sign off)" onPress={() => navigation.navigate('ScanDetail', { scanId: result.id })} />
           <Text style={styles.detail}>Category: {result.category || 'Unknown'}</Text>
           <Text style={styles.detail}>Packaging type: {result.packaging_type || 'Unknown'}</Text>
           {result.packaging_condition ? (

@@ -14,6 +14,7 @@ export type UserRole =
   | 'wholesaler'
   | 'administrator'
   | 'company_admin'
+  | 'inspector'
   | 'consumer';
 
 export type ProductCategory =
@@ -82,6 +83,102 @@ export interface ScanResult {
   override_condition?: Condition;
   override_reason?: string;
   override_notes?: string;
+  inspector_email?: string;
+  inspector_id?: string;
+  company_name?: string;
+  branch_name?: string;
+  ocr_raw_text?: string;
+  date_details?: DateCandidate[];
+  field_status?: Record<string, FieldStatus>;
+  date_flags?: string[];
+  review_status?: string;
+  final_result?: string;
+  final_decision?: string;
+  signed_off_at?: string;
+  signed_off_by_name?: string;
+}
+
+export type FieldStatus = 'detected' | 'needs_verification' | 'entered' | 'corrected';
+
+export interface DateCandidate {
+  type: 'expiry' | 'best_before' | 'production' | 'packaging' | 'unlabelled';
+  original_text: string;
+  matched_text: string;
+  format: string;
+  interpreted: string;
+  status: 'detected' | 'needs_verification';
+  note?: string;
+}
+
+export interface ScanCorrection {
+  id: string;
+  field: string;
+  original_value?: string;
+  new_value?: string;
+  reason: string;
+  user_id: string;
+  user_name?: string;
+  created_at: string;
+}
+
+export interface Signoff {
+  id: string;
+  full_name: string;
+  typed_name: string;
+  email: string;
+  role: string;
+  decision: 'confirm' | 'override' | 'escalate';
+  system_result?: string;
+  final_result?: string;
+  comments?: string;
+  override_reason?: string;
+  acknowledgement_text: string;
+  created_at: string;
+}
+
+export interface ScanDetail extends ScanResult {
+  corrections: ScanCorrection[];
+  signoffs: Signoff[];
+  reviews: ReviewRequest[];
+}
+
+export interface InspectionFilters {
+  date_from?: string;
+  date_to?: string;
+  branch_id?: string;
+  inspector_id?: string;
+  product?: string;
+  result?: string;
+  review_status?: string;
+}
+
+export interface SummaryCounts { total: number; pass: number; warning: number; review: number }
+
+export interface DashboardSummary {
+  total: number;
+  today: number;
+  pass_count: number;
+  warning: number;
+  review: number;
+  insufficient_data: number;
+  expired_products: number;
+  awaiting_review: number;
+  signed_off: number;
+  recent: { id: string; product_name?: string; brand?: string; overall_result?: string; review_status?: string; inspector?: string; site?: string; created_at?: string }[];
+  by_site: (SummaryCounts & { branch_id?: string; site: string })[];
+  by_inspector: (SummaryCounts & { inspector_id?: string; inspector: string })[];
+  trend: (SummaryCounts & { date: string })[];
+}
+
+export interface UserAccount {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole | 'inspector';
+  organization?: string;
+  company_id?: string;
+  branch_id?: string;
+  is_active: boolean;
 }
 
 export interface DashboardStats {
@@ -104,7 +201,9 @@ export interface AnalyticsResult {
 
 export interface Report {
   id: string;
-  scan_id: string;
+  scan_id?: string;
+  report_type?: string;
+  format?: string;
   report_id: string;
   notes?: string;
   file_url?: string;
@@ -116,7 +215,13 @@ export interface ReviewRequest {
   scan_id: string;
   suggested_condition?: Condition;
   reviewer_notes?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'escalated';
+  user_id?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  requester_name?: string;
+  reviewer_name?: string;
+  created_at?: string;
 }
 
 export interface Company {

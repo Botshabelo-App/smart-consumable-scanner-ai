@@ -105,10 +105,14 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('/home/ubuntu/keystores/smartscanner-release.keystore')
-            storePassword 'SmartScanner2026'
-            keyAlias 'smartscanner'
-            keyPassword 'SmartScanner2026'
+            // Release key is supplied at build time (never committed):
+            // SCS_UPLOAD_STORE_FILE, SCS_UPLOAD_STORE_PASSWORD, SCS_UPLOAD_KEY_ALIAS, SCS_UPLOAD_KEY_PASSWORD
+            if (System.getenv('SCS_UPLOAD_STORE_FILE')) {
+                storeFile file(System.getenv('SCS_UPLOAD_STORE_FILE'))
+                storePassword System.getenv('SCS_UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('SCS_UPLOAD_KEY_ALIAS')
+                keyPassword System.getenv('SCS_UPLOAD_KEY_PASSWORD')
+            }
         }
     }
     buildTypes {

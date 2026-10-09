@@ -4,11 +4,13 @@
 # Use is subject to the project licence terms.
 
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+from fastapi.responses import FileResponse
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 
@@ -463,6 +465,15 @@ def get_scan_detail(scan_id: str, db: Session = Depends(get_db), user: User = De
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
     return scan
+
+
+@router.get("/{scan_id}/image")
+def get_scan_image(scan_id: str, db: Session = Depends(get_db), user: User = Depends(require_user)):
+    """Evidence photo for an inspection (own organisation only)."""
+    scan = get_scan_for_user(db, user, scan_id)
+    if not scan or not scan.image_path or not os.path.isfile(scan.image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(scan.image_path)
 
 
 _DATE_FIELDS = {"production_date", "expiry_date"}

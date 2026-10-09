@@ -5,6 +5,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -21,6 +22,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     SecureStore.getItemAsync(TOKEN_KEY).then((token) => setIsLoggedIn(!!token));
+    // Imported lazily to avoid a circular import (api.ts imports the token helpers below).
+    const { setSessionExpiredHandler } = require('../services/api');
+    setSessionExpiredHandler(() => {
+      setIsLoggedIn(false);
+      Alert.alert('Session expired', 'Your login has expired. Please log in again.');
+    });
   }, []);
 
   const logout = async () => {

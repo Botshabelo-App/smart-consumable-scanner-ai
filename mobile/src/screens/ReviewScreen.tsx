@@ -3,98 +3,102 @@
 // This file is part of the Smart Consumable Scanner AI project.
 // Use is subject to the project licence terms.
 
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { Alert, Button, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { createReviewRequest, getReviewRequests, getScans } from '../services/api';
-import { ReviewRequest, ScanResult } from '../types';
+import { RESULT_COLOR, RESULT_LABEL } from '../components/InspectionFields';
+import { errorMessage, getMe, getReviewRequests, getScans, updateReview } from '../services/api';
+import { ReviewRequest, ScanResult, UserAccount } from '../types';
 
-const conditions: Array<ScanResult['condition']> = ['fresh', 'near_expiry', 'suspicious', 'expired'];
-
-export default function ReviewScreen() {
-  const [scans, setScans] = useState<ScanResult[]>([]);
-  const [requests, setRequests] = useState<ReviewRequest[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [suggested, setSuggested] = useState<ScanResult['condition']>('fresh');
-  const [notes, setNotes] = useState('');
+export default function ReviewScreen({ navigation }: any) {
+  const [awaiting, setAwaiting] = useState<ScanResult[]>([]);
+  const [reviews, setReviews] = useState<ReviewRequest[]>([]);
+  const [me, setMe] = useState<UserAccount | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const load = async () => {
-    try {
-      const [s, r] = await Promise.all([getScans(), getReviewRequests()]);
-      setScans(s);
-      setRequests(r);
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.detail || e.message);
-    }
-  };
-
-  const submit = async () => {
-    if (!selected) return;
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      await createReviewRequest(selected, suggested, notes);
-      Alert.alert('Review requested', 'An authorized reviewer will examine this scan.');
-      setSelected(null);
-      setNotes('');
-      load();
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.detail || e.message);
+      const [scans, revs, u] = await Promise.all([getScans({ review_status: 'awaiting_review' }, 200), getReviewRequests(), getMe()]);
+      const escalated = await getScans({ review_status: 'escalated' }, 200);
+      const seen = new Set<string>();
+      setAwaiting([...escalated, ...scans].filter((s) => (seen.has(s.id) ? false : (seen.add(s.id), true))));
+      setReviews(revs);
+      setMe(u);
+    } catch (e) {
+      Alert.alert('Error', errorMessage(e));
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const isAdmin = me?.role === 'company_admin' || me?.role === 'administrator';
+
+  const decide = async (r: ReviewRequest, status: 'approved' | 'rejected' | 'escalated') => {
+    const n = (notes[r.id] || '').trim();
+    if (n.length < 3) return Alert.alert('Reason required', 'Write the reason for this decision.');
+    try {
+      await updateReview(r.id, status, n);
+      await load();
+    } catch (e) {
+      Alert.alert('Not saved', errorMessage(e));
+    }
   };
 
-  const renderScan = ({ item }: { item: ScanResult }) => (
-    <View style={[styles.card, selected === item.id && styles.selected]}>
-      <Text style={styles.name}>{item.product_name || 'Unknown product'}</Text>
-      <Text>AI: {item.condition}</Text>
-      <Text>{new Date(item.created_at).toLocaleString()}</Text>
-      <Button title={selected === item.id ? 'Selected' : 'Request review'} onPress={() => setSelected(item.id)} />
-    </View>
-  );
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>AI Review Workflow</Text>
-      <FlatList
-        data={scans}
-        keyExtractor={(item) => item.id}
-        renderItem={renderScan}
-        ListEmptyComponent={<ActivityIndicator />}
-      />
-      {selected && (
-        <View style={styles.form}>
-          <Text>Suggest correct condition:</Text>
-          <View style={styles.row}>
-            {conditions.map((c) => (
-              <View key={c} style={styles.btn}>
-                <Button title={c} onPress={() => setSuggested(c)} color={suggested === c ? '#1976d2' : undefined} />
+    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+      <Text style={styles.title}>Review</Text>
+      <Text style={styles.subtitle}>Inspections needing review or sign-off ({awaiting.length})</Text>
+      {awaiting.length === 0 && <Text style={styles.small}>Nothing is waiting for review.</Text>}
+      {awaiting.map((s) => (
+        <TouchableOpacity key={s.id} style={styles.item} onPress={() => navigation.navigate('ScanDetail', { scanId: s.id })}>
+          <Text style={[styles.name, { color: RESULT_COLOR[s.overall_result || ''] || '#333' }]}>
+            {s.product_name || 'Product not detected'} – {RESULT_LABEL[s.overall_result || ''] || s.overall_result}
+          </Text>
+          <Text style={styles.small}>Status: {s.review_status}  •  {new Date(s.created_at).toLocaleString()}  •  {s.inspector_name}</Text>
+          <Text style={styles.small}>Tap to view evidence, correct fields and sign off</Text>
+        </TouchableOpacity>
+      ))}
+
+      <Text style={styles.subtitle}>Review requests</Text>
+      {reviews.length === 0 && <Text style={styles.small}>No review requests.</Text>}
+      {reviews.map((r) => (
+        <View key={r.id} style={styles.item}>
+          <TouchableOpacity onPress={() => navigation.navigate('ScanDetail', { scanId: r.scan_id })}>
+            <Text style={styles.name}>Request {r.status.toUpperCase()} – open inspection</Text>
+          </TouchableOpacity>
+          <Text style={styles.small}>
+            Requested by {r.requester_name || 'unknown'}{r.created_at ? ` on ${new Date(r.created_at).toLocaleString()}` : ''}
+          </Text>
+          {r.reviewer_notes ? <Text style={styles.small}>Notes: {r.reviewer_notes}</Text> : null}
+          {r.reviewer_name ? <Text style={styles.small}>Handled by {r.reviewer_name}</Text> : null}
+          {isAdmin && (r.status === 'pending' || r.status === 'escalated') && (
+            <View>
+              <TextInput style={styles.input} placeholder="Decision reason (required)" value={notes[r.id] || ''} onChangeText={(t) => setNotes({ ...notes, [r.id]: t })} />
+              <View style={styles.row}>
+                <Button title="Approve" onPress={() => decide(r, 'approved')} />
+                <Button title="Reject" color="#c62828" onPress={() => decide(r, 'rejected')} />
+                {r.status !== 'escalated' && <Button title="Escalate" color="#ef6c00" onPress={() => decide(r, 'escalated')} />}
               </View>
-            ))}
-          </View>
-          <TextInput style={styles.input} placeholder="Notes" value={notes} onChangeText={setNotes} />
-          {loading ? <ActivityIndicator /> : <Button title="Submit review request" onPress={submit} />}
+            </View>
+          )}
         </View>
-      )}
-      <Text style={styles.subtitle}>Pending reviews ({requests.filter((r) => r.status === 'pending').length})</Text>
-    </View>
+      ))}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  subtitle: { fontSize: 16, fontWeight: '600', marginTop: 12 },
-  card: { padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8, marginBottom: 8 },
-  selected: { backgroundColor: '#d0eaff' },
-  name: { fontSize: 16, fontWeight: 'bold' },
-  form: { marginTop: 12 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', marginVertical: 8 },
-  btn: { margin: 2 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, marginVertical: 8 },
+  title: { fontSize: 22, fontWeight: 'bold' },
+  subtitle: { fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 6 },
+  item: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  name: { fontWeight: '600' },
+  small: { fontSize: 12, color: '#555' },
+  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, marginVertical: 4 },
+  row: { flexDirection: 'row', justifyContent: 'space-around' },
 });

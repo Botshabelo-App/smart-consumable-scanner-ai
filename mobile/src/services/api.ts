@@ -7,7 +7,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance } from 'axios';
 
 import { deleteToken, getToken, saveToken } from '../context/AuthContext';
-import { AnalyticsResult, BarcodeInfo, Branch, Company, Report, ReviewRequest, ScanResult } from '../types';
+import {
+  AnalyticsResult, BarcodeInfo, Branch, Company, DashboardSummary, InspectionFilters, Report, ReviewRequest,
+  ScanDetail, ScanResult, UserAccount,
+} from '../types';
 
 declare const __DEV__: boolean;
 
@@ -28,6 +31,35 @@ api.interceptors.request.use(async (config) => {
   }
   return config;
 });
+
+let onSessionExpired: (() => void) | null = null;
+
+/** Called once by AuthProvider: an expired/invalid login sends the user back to the login screen. */
+export function setSessionExpiredHandler(handler: () => void) {
+  onSessionExpired = handler;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const url: string = error?.config?.url || '';
+    const isAuthCall = url.includes('/auth/login') || url.includes('/auth/register');
+    if (error?.response?.status === 401 && !isAuthCall && (await getToken())) {
+      await deleteToken();
+      onSessionExpired?.();
+      error.message = 'Your session has expired. Please log in again.';
+    }
+    return Promise.reject(error);
+  }
+);
+
+/** Readable message from an API error (FastAPI detail strings or validation lists). */
+export function errorMessage(e: any): string {
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map((d: any) => `${(d.loc || []).slice(-1)[0] || ''}: ${d.msg}`).join('\n');
+  return e?.message || 'Unknown error';
+}
 
 const OFFLINE_QUEUE_KEY = 'offline_scan_queue';
 
@@ -105,9 +137,86 @@ async function uploadScan(payload: ScanPayload): Promise<ScanResult> {
   return data;
 }
 
-export async function getScans(): Promise<ScanResult[]> {
-  const { data } = await api.get('/scans/');
+function cleanFilters(f?: InspectionFilters) {
+  const out: Record<string, string> = {};
+  Object.entries(f || {}).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && String(v).trim() !== '') out[k] = String(v).trim();
+  });
+  return out;
+}
+
+export async function getScans(filters?: InspectionFilters, limit = 100): Promise<ScanResult[]> {
+  const { data } = await api.get('/scans/', { params: { ...cleanFilters(filters), limit } });
   return data;
+}
+
+export async function getScanDetail(scanId: string): Promise<ScanDetail> {
+  const { data } = await api.get(`/scans/${scanId}/detail`);
+  return data;
+}
+
+export async function correctScanField(scanId: string, field: string, value: string, reason: string): Promise<ScanDetail> {
+  const { data } = await api.post(`/scans/${scanId}/corrections`, { field, value, reason });
+  return data;
+}
+
+export async function signOffScan(
+  scanId: string,
+  payload: { decision: 'confirm' | 'override' | 'escalate'; final_result?: string; typed_name: string; acknowledged: boolean; comments?: string; override_reason?: string }
+): Promise<ScanDetail> {
+  const { data } = await api.post(`/scans/${scanId}/signoff`, payload);
+  return data;
+}
+
+export async function getDashboardSummary(filters?: InspectionFilters): Promise<DashboardSummary> {
+  const { data } = await api.get('/dashboard/summary', { params: cleanFilters(filters) });
+  return data;
+}
+
+export async function getMe(): Promise<UserAccount> {
+  const { data } = await api.get('/auth/me');
+  return data;
+}
+
+export async function getUsers(): Promise<UserAccount[]> {
+  const { data } = await api.get('/admin/inspectors');
+  return data;
+}
+
+export async function createInspector(payload: {
+  email: string; full_name: string; password: string; role: string; company_id?: string; branch_id?: string;
+}): Promise<UserAccount> {
+  const { data } = await api.post('/admin/inspectors', payload);
+  return data;
+}
+
+export async function setUserActive(userId: string, active: boolean): Promise<UserAccount> {
+  const { data } = await api.patch(`/admin/users/${userId}/activation`, { is_active: active });
+  return data;
+}
+
+export async function resetUserPassword(userId: string, newPassword: string): Promise<UserAccount> {
+  const { data } = await api.post(`/admin/users/${userId}/reset-password`, { new_password: newPassword });
+  return data;
+}
+
+export async function createBranch(companyId: string, name: string): Promise<Branch> {
+  const { data } = await api.post('/admin/branches', { company_id: companyId, name });
+  return data;
+}
+
+export async function generateBatchReport(format: 'pdf' | 'csv' | 'excel', filters?: InspectionFilters, notes?: string): Promise<Report> {
+  const { data } = await api.post(`/reports/batch?format=${format}`, { ...cleanFilters(filters), notes });
+  return data;
+}
+
+export async function updateReview(reviewId: string, status: 'approved' | 'rejected' | 'escalated', reviewerNotes: string): Promise<ReviewRequest> {
+  const { data } = await api.patch(`/reviews/${reviewId}`, { status, reviewer_notes: reviewerNotes });
+  return data;
+}
+
+export function apiBaseUrl(): string {
+  return api.defaults.baseURL || '';
 }
 
 export async function getDashboardStats() {

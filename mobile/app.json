@@ -2,7 +2,7 @@
   "expo": {
     "name": "Smart Consumable Scanner AI",
     "slug": "smart-consumable-scanner-ai",
-    "version": "0.1.9-RC1",
+    "version": "0.2.0-pilot",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.smartscanner.ai",
@@ -30,7 +32,8 @@
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
-      }
+      },
+      "versionCode": 20
     },
     "plugins": [
       [
@@ -52,7 +55,8 @@
         }
       ],
       "expo-system-ui",
-      "./plugins/withAndroidCleartextTraffic"
+      "./plugins/withAndroidCleartextTraffic",
+      "expo-sharing"
     ]
   }
 }
