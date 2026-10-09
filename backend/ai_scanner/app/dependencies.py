@@ -72,6 +72,17 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_lenient(
+    token: Optional[str] = Depends(oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """Like get_current_user, but an expired/invalid token counts as anonymous (for sign-up)."""
+    try:
+        return await get_current_user(token, db)
+    except HTTPException:
+        return None
+
+
 def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")

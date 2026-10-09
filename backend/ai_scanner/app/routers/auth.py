@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from ai_scanner.app.db.database import get_db
 from ai_scanner.app.db.models import Company, User
-from ai_scanner.app.dependencies import create_access_token, get_current_user, get_password_hash, require_admin, require_user, validate_password, verify_password
+from ai_scanner.app.dependencies import create_access_token, get_current_user_lenient, get_password_hash, require_admin, require_user, validate_password, verify_password
 from ai_scanner.app.limiter import limiter
 from ai_scanner.app.schemas import OrganisationRead, OrganisationRegister, Token, UserCreate, UserLogin, UserRead
 from ai_scanner.app.services.audit import log_event
@@ -32,7 +32,7 @@ def register(
     request: Request,
     payload: UserCreate,
     db: Session = Depends(get_db),
-    current: Optional[User] = Depends(get_current_user),
+    current: Optional[User] = Depends(get_current_user_lenient),
 ):
     """Admins create users in their organisation; unauthenticated callers self-register
     as administrator of a new organisation (same as /register-organisation)."""
