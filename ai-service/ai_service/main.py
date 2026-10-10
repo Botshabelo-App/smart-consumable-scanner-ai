@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import FastAPI, File, Form, UploadFile
 
 from ai_service.app.models.classifier import get_classifier
-from ai_service.app.services.image_processor import guess_product_hint, load_image
+from ai_service.app.services.image_processor import load_image
 from ai_service.schemas import ScanResult
 
 
