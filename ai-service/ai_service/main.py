@@ -43,5 +43,6 @@ async def analyze(
     product_hint: Optional[str] = Form(None),
 ):
     pil_image = await load_image(image)
-    hint = product_hint or guess_product_hint(image.filename)
+    # Never derive the product from the upload filename (camera files are random UUIDs; test files would leak labels).
+    hint = product_hint
     return _classifier().predict(pil_image, product_hint=hint)

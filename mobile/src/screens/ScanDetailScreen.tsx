@@ -7,6 +7,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Button, Image, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import InspectionFields, { RESULT_LABEL, ResultBanner } from '../components/InspectionFields';
+import * as FileSystem from 'expo-file-system/legacy';
+
 import { getToken } from '../context/AuthContext';
 import {
   apiBaseUrl, correctScanField, createReviewRequest, errorMessage, getMe, getScanDetail, signOffScan,
@@ -30,7 +32,8 @@ export default function ScanDetailScreen({ route }: any) {
   const scanId: string = route.params.scanId;
   const [scan, setScan] = useState<ScanDetail | null>(null);
   const [me, setMe] = useState<UserAccount | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMsg, setPhotoMsg] = useState('Loading evidence photo…');
   const [busy, setBusy] = useState(false);
   const [field, setField] = useState('expiry_date');
   const [value, setValue] = useState('');
@@ -48,7 +51,13 @@ export default function ScanDetailScreen({ route }: any) {
       const [d, u, t] = await Promise.all([getScanDetail(scanId), getMe(), getToken()]);
       setScan(d);
       setMe(u);
-      setToken(t);
+      if (!photoUri) {
+        const res = await FileSystem.downloadAsync(`${apiBaseUrl()}/scans/${scanId}/image`, `${FileSystem.cacheDirectory}scan-${scanId}.jpg`, {
+          headers: { Authorization: `Bearer ${t}` },
+        });
+        if (res.status === 200) setPhotoUri(res.uri);
+        else setPhotoMsg(res.status === 404 ? 'No evidence photo stored for this inspection.' : `Photo could not be loaded (HTTP ${res.status}).`);
+      }
     } catch (e) {
       Alert.alert('Error', errorMessage(e));
     }
@@ -81,12 +90,10 @@ export default function ScanDetailScreen({ route }: any) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <ResultBanner scan={scan} />
-      {token && (
-        <Image
-          source={{ uri: `${apiBaseUrl()}/scans/${scan.id}/image`, headers: { Authorization: `Bearer ${token}` } }}
-          style={styles.photo}
-          resizeMode="contain"
-        />
+      {photoUri ? (
+        <Image source={{ uri: photoUri }} style={styles.photo} resizeMode="contain" />
+      ) : (
+        <Text style={styles.small}>{photoMsg}</Text>
       )}
       <InspectionFields scan={scan} />
       <Text style={styles.meta}>
