@@ -44,10 +44,12 @@ api.interceptors.response.use(
   async (error) => {
     const url: string = error?.config?.url || '';
     const isAuthCall = url.includes('/auth/login') || url.includes('/auth/register');
-    if (error?.response?.status === 401 && !isAuthCall && (await getToken())) {
+    const status = error?.response?.status;
+    const deactivated = status === 403 && error?.response?.data?.detail === 'Account deactivated';
+    if ((status === 401 || deactivated) && !isAuthCall && (await getToken())) {
       await deleteToken();
       onSessionExpired?.();
-      error.message = 'Your session has expired. Please log in again.';
+      error.message = deactivated ? 'This account has been deactivated.' : 'Your session has expired. Please log in again.';
     }
     return Promise.reject(error);
   }
